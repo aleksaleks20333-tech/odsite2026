@@ -1,0 +1,2863 @@
+<!DOCTYPE html>
+<html lang="ru" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Система Управления Сменами</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS for genuine .xlsx Excel export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="min-h-full bg-slate-50 text-slate-800 flex flex-col justify-between m-0 p-0">
+
+
+    <div id="confirm-modal-container" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 hidden backdrop-blur-sm">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl border border-slate-100 transform transition-all">
+            <div class="text-3xl mb-3 text-center text-rose-500">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 id="confirm-modal-title" class="text-lg font-bold text-center text-slate-900 mb-2">Подтверждение</h3>
+            <p id="confirm-modal-message" class="text-sm text-slate-600 text-center mb-6">Вы уверены?</p>
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeConfirmModal()" class="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition">Отмена</button>
+                <button type="button" id="confirm-modal-action-btn" class="bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition shadow-lg shadow-rose-100">Удалить</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-container" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 hidden backdrop-blur-sm">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl border border-slate-100 transform transition-all">
+            <div id="modal-icon" class="text-3xl mb-3 text-center"></div>
+            <h3 id="modal-title" class="text-lg font-bold text-center text-slate-900 mb-2"></h3>
+            <p id="modal-message" class="text-sm text-slate-600 text-center mb-6"></p>
+            <div class="flex justify-center">
+                <button onclick="closeModal()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-xl transition shadow-lg shadow-indigo-100">ОК</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="employee-status-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 hidden backdrop-blur-sm">
+        <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full mx-4 shadow-2xl border border-slate-100">
+            <div class="flex items-center space-x-3 mb-6 pb-4 border-b border-slate-100">
+                <div id="status-modal-avatar" class="w-12 h-12 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex-shrink-0"></div>
+                <div>
+                    <h3 id="status-modal-name" class="text-lg font-bold text-slate-900"></h3>
+                    <p class="text-xs text-slate-500">Статус документов и допусков сотрудника</p>
+                </div>
+            </div>
+            
+            <input type="hidden" id="status-modal-emp-id">
+            
+            <div class="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+                <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Документы</div>
+                
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                    <span class="text-sm font-medium text-slate-700">ГПХ (Договор)</span>
+                    <select id="status-gph" class="bg-white border border-slate-200 text-xs font-semibold px-3 py-1.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="нет">Отсутствует / Нет</option>
+                        <option value="да">Действует / Да</option>
+                        <option value="истекает">Истекает</option>
+                        <option value="просрочен">Просрочен</option>
+                        <option value="не проверен">Не проверен</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                    <span class="text-sm font-medium text-slate-700">Заполнены документы</span>
+                    <select id="status-docs" class="bg-white border border-slate-200 text-xs font-semibold px-3 py-1.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="нет">Отсутствует / Нет</option>
+                        <option value="да">Действует / Да</option>
+                        <option value="истекает">Истекает</option>
+                        <option value="просрочен">Просрочен</option>
+                        <option value="не проверен">Не проверен</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                    <span class="text-sm font-medium text-slate-700">Фото в диске</span>
+                    <select id="status-photo" class="bg-white border border-slate-200 text-xs font-semibold px-3 py-1.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="нет">Отсутствует / Нет</option>
+                        <option value="да">Действует / Да</option>
+                        <option value="не проверен">Не проверен</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div>
+                        <span class="text-sm font-medium text-slate-700 block">Срок действия документов</span>
+                        <span class="text-[10px] text-slate-400">Оставьте пустым, если не ограничен</span>
+                    </div>
+                    <input type="date" id="status-docs-expiry" class="bg-white border border-slate-200 text-xs font-semibold px-2 py-1.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 pt-2 border-t border-slate-100">Допуски и обучение</div>
+
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                    <span class="text-sm font-medium text-slate-700">ТБ (Техника безопасности)</span>
+                    <select id="status-tb" class="bg-white border border-slate-200 text-xs font-semibold px-3 py-1.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="нет">Отсутствует / Нет</option>
+                        <option value="да">Действует / Да</option>
+                        <option value="истекает">Истекает</option>
+                        <option value="просрочен">Просрочен</option>
+                        <option value="не проверен">Не проверен</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div>
+                        <span class="text-sm font-medium text-slate-700 block">Срок действия допуска ТБ</span>
+                        <span class="text-[10px] text-slate-400">Оставьте пустым, если не ограничен</span>
+                    </div>
+                    <input type="date" id="status-tb-expiry" class="bg-white border border-slate-200 text-xs font-semibold px-2 py-1.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                    <span class="text-sm font-medium text-slate-700">Скрипты</span>
+                    <select id="status-scripts" class="bg-white border border-slate-200 text-xs font-semibold px-3 py-1.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="нет">Отсутствует / Нет</option>
+                        <option value="да">Действует / Да</option>
+                        <option value="не проверен">Не проверен</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end space-x-3 mt-8">
+                <button type="button" onclick="closeStatusModal()" class="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition">Отмена</button>
+                <button type="button" onclick="saveEmployeeStatusData()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition shadow-lg shadow-indigo-100">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex-grow flex flex-col">
+        
+        <header id="app-header" class="bg-white border-b border-slate-200 sticky top-0 z-30 hidden">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-indigo-100">
+                        <i class="fa-solid fa-calendar-days"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-slate-900 leading-tight">Олимпийская Деревня</h1>
+                        <div class="flex items-center space-x-1.5 mt-0.5">
+                            <span class="text-xs text-slate-400">Роль:</span>
+                            <span id="user-role-display" class="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200/60 px-2 py-0.5 rounded-md">Сотрудник</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <div id="header-avatar" class="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 border border-slate-200"></div>
+                    <span id="header-username" class="text-sm font-medium text-slate-700 hidden sm:inline-block bg-slate-100 px-3 py-1.5 rounded-lg"></span>
+                    <button onclick="logout()" class="flex items-center space-x-2 text-rose-600 hover:text-rose-700 font-medium text-sm bg-rose-50 hover:bg-rose-100 px-3.5 py-2 rounded-xl transition">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                        <span>Выйти</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <section id="view-login" class="flex-grow flex items-center justify-center p-4">
+            <div class="max-w-md w-full bg-white rounded-3xl shadow-xl border border-slate-100 p-8">
+                <div class="text-center mb-8">
+                    <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl mx-auto flex items-center justify-center text-2xl font-bold mb-4 shadow-inner">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-900">Вход в систему смен</h2>
+                    <p class="text-sm text-slate-500 mt-1">Введите ваш пароль сотрудника или администратора</p>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Пароль</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                <i class="fa-solid fa-key"></i>
+                            </span>
+                            <input type="password" id="login-password" placeholder="Введите пароль..." 
+                                class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
+                                onkeydown="if(event.key === 'Enter') handleLogin()">
+                        </div>
+                    </div>
+
+                    <button onclick="handleLogin()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-xl transition shadow-lg shadow-indigo-100 flex items-center justify-center space-x-2">
+                        <span>Войти в систему</span>
+                        <i class="fa-solid fa-arrow-right text-xs"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-employee" class="flex-grow hidden max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+            <div class="space-y-8">
+                <!-- Lock Notification Banner -->
+                <div id="shifts-locked-alert" class="hidden bg-amber-500/15 border border-amber-500/40 rounded-2xl p-4 text-amber-900 flex items-center space-x-3 shadow-sm backdrop-blur-sm">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-lg flex-shrink-0">
+                        <i class="fa-solid fa-lock"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-sm text-amber-900">Редактирование смен частично заблокировано</h4>
+                        <p class="text-xs text-amber-700 mt-0.5">Администратор включил блокировку. Доступно редактирование только тех дней, где набрано менее 10 сотрудников.</p>
+                    </div>
+                </div>
+
+                <!-- Banner with Level Badge & Total Worked Shifts -->
+                <div class="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
+                    <div class="absolute right-0 top-0 transform translate-x-8 -translate-y-8 w-64 h-64 bg-white/10 rounded-full pointer-events-none blur-2xl"></div>
+                    <div class="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                        <div class="flex items-start sm:items-center space-x-4">
+                            <div id="emp-banner-avatar" class="w-16 h-16 rounded-2xl overflow-hidden shadow-lg border-2 border-white/20 flex-shrink-0 bg-white/10"></div>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex flex-wrap items-center gap-2 mb-2">
+                                    <span class="bg-white/20 text-white text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">Личный кабинет сотрудника</span>
+                                    <span id="emp-banner-role-badge" class="bg-amber-400 text-slate-900 text-xs font-extrabold px-3 py-1 rounded-full shadow-sm flex items-center space-x-1">
+                                        <i class="fa-solid fa-id-badge text-[10px]"></i>
+                                        <span id="emp-banner-role-text">Сотрудник</span>
+                                    </span>
+                                    <span id="emp-banner-level" class="bg-purple-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm border border-purple-400/40 flex items-center space-x-1">
+                                        <i class="fa-solid fa-star text-amber-300 text-[10px]"></i>
+                                        <span>Уровень: 0</span>
+                                    </span>
+                                </div>
+                                <h2 class="text-xl sm:text-3xl font-bold tracking-normal leading-snug break-words" id="emp-welcome-name">Добро пожаловать!</h2>
+                                <p class="inline-block mt-2 px-3 py-1 bg-emerald-500/20 border border-emerald-400/40 rounded-xl text-emerald-300 font-bold text-xs sm:text-sm shadow-sm backdrop-blur-sm" id="emp-days-subtitle">
+                                    Вы уже с нами 0 дней!
+                                </p>
+                            </div>
+                        </div>
+                        <div class="bg-white/10 backdrop-blur-md rounded-2xl p-4 flex items-center space-x-4 flex-shrink-0">
+                            <div>
+                                <p class="text-xs text-indigo-200">Выбрано смен:</p>
+                                <p class="text-2xl font-bold" id="emp-selected-count">0 / 28</p>
+                            </div>
+                            <div class="border-l border-white/20 pl-4">
+                                <p class="text-xs text-indigo-200">Отработано (подтверждено):</p>
+                                <p class="text-2xl font-bold text-amber-300" id="emp-total-worked-count">0</p>
+                                <p class="text-[10px] text-indigo-200 mt-0.5" id="emp-level-progress-subtext">+0 ур. за смены</p>
+                            </div>
+                            <button id="emp-save-btn-top" onclick="saveEmployeeShifts()" class="bg-white text-indigo-600 hover:bg-indigo-50 font-semibold px-5 py-2.5 rounded-xl transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+                                Сохранить
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Navigation Buttons for Employee Dashboard Sections -->
+                <div class="flex flex-wrap items-center gap-3">
+                    <button id="btn-show-schedule" onclick="switchEmployeeSection('schedule')" class="bg-indigo-600 text-white font-semibold px-5 py-3 rounded-xl transition shadow-sm flex items-center space-x-2">
+                        <i class="fa-regular fa-calendar-days text-sm"></i>
+                        <span>График смен</span>
+                    </button>
+                    <button id="btn-show-shared" onclick="switchEmployeeSection('shared')" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold px-5 py-3 rounded-xl transition shadow-sm flex items-center space-x-2">
+                        <i class="fa-solid fa-table-cells text-sm"></i>
+                        <span>Общая таблица смен</span>
+                    </button>
+                    <button id="btn-show-upcoming" onclick="switchEmployeeSection('upcoming')" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold px-5 py-3 rounded-xl transition shadow-sm flex items-center space-x-2">
+                        <i class="fa-solid fa-clock-rotate-left text-sm"></i>
+                        <span>Расписание</span>
+                    </button>
+                    <button id="btn-show-emp-docs" onclick="switchEmployeeSection('docs')" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold px-5 py-3 rounded-xl transition shadow-sm flex items-center space-x-2">
+                        <i class="fa-solid fa-clipboard-check text-sm"></i>
+                        <span>Документы</span>
+                    </button>
+                </div>
+
+                <!-- Section: Shift Schedule -->
+                <div id="section-shift-schedule" class="space-y-6">
+                    <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 sm:p-8">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 pb-4 border-b border-slate-100 gap-4">
+                            <div>
+                                <h3 class="text-lg font-bold text-slate-900">График смен</h3>
+                                <p class="text-xs text-slate-500" id="calendar-instruction-text">Нажмите на день, чтобы переключить статус</p>
+                            </div>
+                            <div class="flex items-center space-x-4 text-xs font-medium">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-4 h-4 rounded bg-indigo-600"></div>
+                                    <span class="text-slate-600">Рабочая смена</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-4 h-4 rounded bg-slate-100 border border-slate-200"></div>
+                                    <span class="text-slate-600">Выходной</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="employee-weeks-container" class="space-y-6"></div>
+
+                        <div class="mt-8 flex justify-end">
+                            <button id="emp-save-btn-bottom" onclick="saveEmployeeShifts()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-3 rounded-xl transition shadow-lg shadow-indigo-100 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i class="fa-solid fa-floppy-disk"></i>
+                                <span>Сохранить мои смены</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section: Company-Wide Shift Table -->
+                <div id="section-company-table" class="space-y-6 hidden">
+                    <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 sm:p-8">
+                        <div class="mb-6 pb-4 border-b border-slate-100">
+                            <h3 class="text-lg font-bold text-slate-900">Общая таблица смен</h3>
+                            <p class="text-xs text-slate-500">График всех сотрудников</p>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr id="shared-table-header" class="bg-slate-50 border-b border-slate-200 text-slate-600">
+                                        <th class="p-3 font-semibold sticky left-0 bg-slate-50 z-10">Сотрудник</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="shared-table-body" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section: Schedule (Today + Next Calendar Day) -->
+                <div id="section-upcoming-schedule" class="space-y-6 hidden">
+                    <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 sm:p-8">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 pb-4 border-b border-slate-100 gap-4">
+                            <div>
+                                <h3 class="text-lg font-bold text-slate-900">Расписание</h3>
+                                <p class="text-xs text-slate-500">Сотрудники на сегодняшней смене и на следующий календарный день</p>
+                            </div>
+                            <div class="flex items-center space-x-2 text-xs text-slate-500 bg-slate-50 border border-slate-200 px-3.5 py-1.5 rounded-xl font-medium">
+                                <i class="fa-regular fa-clock text-indigo-600"></i>
+                                <span>Обновляется в реальном времени</span>
+                            </div>
+                        </div>
+
+                        <div id="upcoming-days-container" class="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
+                            <!-- Populated dynamically via renderUpcomingScheduleSection() -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section: Senior Operator Documents -->
+                <div id="section-employee-docs" class="space-y-6 hidden">
+                    <div id="employee-docs-container"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-admin" class="flex-grow hidden max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+            <div class="space-y-8">
+                <!-- Admin Banner -->
+                <div class="bg-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="bg-indigo-500 text-white text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider flex items-center space-x-1.5"><i class="fa-solid fa-user-shield text-[11px]"></i><span>Панель Администратора · Админ трактора</span></span>
+                            <span id="admin-total-emp-badge" class="bg-slate-800 text-indigo-300 border border-indigo-500/30 text-xs font-bold px-3 py-1 rounded-full flex items-center space-x-1.5">
+                                <i class="fa-solid fa-users text-indigo-400"></i>
+                                <span>Всего сотрудников: <strong id="admin-total-emp-count" class="text-white font-extrabold ml-1">0</strong></span>
+                            </span>
+                            <span id="admin-lock-status-badge" class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-bold px-3 py-1 rounded-full flex items-center space-x-1.5">
+                                <i class="fa-solid fa-lock-open text-emerald-400"></i>
+                                <span>Смены открыты</span>
+                            </span>
+                        </div>
+                        <h2 class="text-2xl sm:text-3xl font-bold mt-2">Олимпийская Деревня — Управление сменами («Админ трактора»)</h2>
+                        <p class="text-slate-400 text-sm mt-1">Управление сотрудниками, паролями и редактирование смен.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button id="admin-lock-toggle-btn" onclick="toggleShiftsLock()" class="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-5 py-3 rounded-xl transition shadow-lg flex items-center space-x-2">
+                            <i class="fa-solid fa-lock"></i>
+                            <span id="admin-lock-btn-text">Заблокировать смены</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Navigation Buttons for Admin Dashboard Sections -->
+                <div class="flex flex-wrap items-center gap-3">
+                    <button id="admin-tab-docs-btn" onclick="switchAdminSection('docs')" class="bg-indigo-600 text-white font-semibold px-5 py-3 rounded-xl transition shadow-sm flex items-center space-x-2">
+                        <i class="fa-solid fa-clipboard-check text-sm"></i>
+                        <span>Документы</span>
+                    </button>
+                    <button id="admin-tab-employees-btn" onclick="switchAdminSection('employees')" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold px-5 py-3 rounded-xl transition shadow-sm flex items-center space-x-2">
+                        <i class="fa-solid fa-users text-sm"></i>
+                        <span>Список сотрудников и пароли</span>
+                    </button>
+                    <button id="admin-tab-shifts-btn" onclick="switchAdminSection('shifts')" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold px-5 py-3 rounded-xl transition shadow-sm flex items-center space-x-2">
+                        <i class="fa-solid fa-calendar-days text-sm"></i>
+                        <span>Редактирование смен сотрудников</span>
+                    </button>
+                    <button id="admin-tab-upcoming-btn" onclick="switchAdminSection('upcoming')" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold px-5 py-3 rounded-xl transition shadow-sm flex items-center space-x-2">
+                        <i class="fa-solid fa-clock-rotate-left text-sm"></i>
+                        <span>Расписание</span>
+                    </button>
+                </div>
+
+                <!-- Section 1: Documents & Permits Summary -->
+                <div id="admin-section-docs" class="space-y-6">
+                    <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 sm:p-8" id="admin-summary-container">
+                    <div class="mb-6 pb-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div>
+                            <div class="flex items-center space-x-2.5">
+                                <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm shadow-inner">
+                                    <i class="fa-solid fa-clipboard-check"></i>
+                                </div>
+                                <h3 class="text-lg font-bold text-slate-900">Сводка по статусам документов и допусков</h3>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-1">
+                                Единый мониторинг всех сотрудников: действительность документов, допусков ТБ, скриптов и сроков действия
+                            </p>
+                        </div>
+                        
+                        <!-- Search and Status Filter Controls -->
+                        <div class="flex flex-wrap items-center gap-3">
+                            <div class="relative min-w-[240px]">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                </span>
+                                <input type="text" id="summary-search-input" oninput="renderStatusSummaryTable()" placeholder="Поиск по ФИО в сводке..." 
+                                    class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition">
+                            </div>
+
+                            <div class="flex items-center space-x-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
+                                <i class="fa-solid fa-filter text-slate-400 text-xs"></i>
+                                <label for="summary-status-filter" class="text-xs font-semibold text-slate-600 whitespace-nowrap">Статус:</label>
+                                <select id="summary-status-filter" onchange="renderStatusSummaryTable()" class="bg-white border border-slate-200 text-xs font-semibold text-slate-800 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <option value="all">Все сотрудники</option>
+                                    <option value="problems">⚠️ Только с проблемами</option>
+                                    <option value="действует">Действует</option>
+                                    <option value="истекает">Истекает</option>
+                                    <option value="просрочен">Просрочен</option>
+                                    <option value="отсутствует">Отсутствует</option>
+                                    <option value="не проверен">Не проверен</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- KPI Quick Summary Cards / Fast Filters -->
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6" id="summary-kpi-grid">
+                        <button type="button" onclick="setSummaryFilter('all')" class="p-3.5 bg-slate-50 hover:bg-slate-100 rounded-2xl border border-slate-200 text-left transition group">
+                            <div class="flex items-center justify-between text-slate-400 mb-1">
+                                <span class="text-[11px] font-semibold uppercase tracking-wider">Всего</span>
+                                <i class="fa-solid fa-users text-slate-400 group-hover:text-indigo-600 transition"></i>
+                            </div>
+                            <div class="text-xl font-extrabold text-slate-900" id="kpi-total-count">0</div>
+                            <div class="text-[10px] text-slate-500 mt-0.5">В системе</div>
+                        </button>
+
+                        <button type="button" onclick="setSummaryFilter('действует')" class="p-3.5 bg-emerald-50/60 hover:bg-emerald-50 rounded-2xl border border-emerald-200/80 text-left transition group">
+                            <div class="flex items-center justify-between text-emerald-600 mb-1">
+                                <span class="text-[11px] font-bold uppercase tracking-wider">Действует</span>
+                                <i class="fa-solid fa-circle-check text-emerald-500"></i>
+                            </div>
+                            <div class="text-xl font-extrabold text-emerald-700" id="kpi-valid-count">0</div>
+                            <div class="text-[10px] text-emerald-600/80 mt-0.5">Все в норме</div>
+                        </button>
+
+                        <button type="button" onclick="setSummaryFilter('истекает')" class="p-3.5 bg-amber-50/60 hover:bg-amber-50 rounded-2xl border border-amber-200/80 text-left transition group">
+                            <div class="flex items-center justify-between text-amber-600 mb-1">
+                                <span class="text-[11px] font-bold uppercase tracking-wider">Истекает</span>
+                                <i class="fa-solid fa-clock text-amber-500"></i>
+                            </div>
+                            <div class="text-xl font-extrabold text-amber-700" id="kpi-expiring-count">0</div>
+                            <div class="text-[10px] text-amber-600/80 mt-0.5">Скоро замена</div>
+                        </button>
+
+                        <button type="button" onclick="setSummaryFilter('просрочен')" class="p-3.5 bg-rose-50/60 hover:bg-rose-50 rounded-2xl border border-rose-200/80 text-left transition group">
+                            <div class="flex items-center justify-between text-rose-600 mb-1">
+                                <span class="text-[11px] font-bold uppercase tracking-wider">Просрочен</span>
+                                <i class="fa-solid fa-circle-exclamation text-rose-500"></i>
+                            </div>
+                            <div class="text-xl font-extrabold text-rose-700" id="kpi-expired-count">0</div>
+                            <div class="text-[10px] text-rose-600/80 mt-0.5">Срок истёк</div>
+                        </button>
+
+                        <button type="button" onclick="setSummaryFilter('отсутствует')" class="p-3.5 bg-slate-100/70 hover:bg-slate-100 rounded-2xl border border-slate-200 text-left transition group">
+                            <div class="flex items-center justify-between text-slate-500 mb-1">
+                                <span class="text-[11px] font-bold uppercase tracking-wider">Отсутствует</span>
+                                <i class="fa-solid fa-circle-xmark text-slate-400"></i>
+                            </div>
+                            <div class="text-xl font-extrabold text-slate-700" id="kpi-missing-count">0</div>
+                            <div class="text-[10px] text-slate-500 mt-0.5">Нет данных</div>
+                        </button>
+
+                        <button type="button" onclick="setSummaryFilter('problems')" class="p-3.5 bg-rose-500 text-white rounded-2xl border border-rose-600 text-left transition shadow-md hover:bg-rose-600 group">
+                            <div class="flex items-center justify-between text-rose-200 mb-1">
+                                <span class="text-[11px] font-bold uppercase tracking-wider">Внимание</span>
+                                <i class="fa-solid fa-triangle-exclamation text-white"></i>
+                            </div>
+                            <div class="text-xl font-extrabold text-white" id="kpi-problems-count">0</div>
+                            <div class="text-[10px] text-rose-100 mt-0.5">Требуют правок</div>
+                        </button>
+                    </div>
+
+                    <!-- Summary Table -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider font-semibold">
+                                    <th class="p-3 w-10 text-center">№</th>
+                                    <th class="p-3 min-w-[200px]">Сотрудник</th>
+                                    <th class="p-3 min-w-[190px]">Статус документов</th>
+                                    <th class="p-3 min-w-[180px]">Статус допусков</th>
+                                    <th class="p-3 min-w-[160px]">Сроки действия</th>
+                                    <th class="p-3 min-w-[220px]">Проблемы и примечания</th>
+                                    <th class="p-3 text-right min-w-[110px]">Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-summary-table-body" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                    </div>
+                </div>
+
+                <!-- Section 2: Employees Management Section with Level Column -->
+                <div id="admin-section-employees" class="space-y-6 hidden">
+                    <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 sm:p-8">
+                    <div class="mb-6 pb-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900">Список сотрудников и пароли</h3>
+                            <p class="text-xs text-slate-500">Нажмите на ФИО сотрудника для просмотра допусков и документов</p>
+                        </div>
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                            <div class="relative min-w-[260px]">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-sm">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                </span>
+                                <input type="text" id="admin-search-input" oninput="initAdminView()" placeholder="Поиск по ФИО..." 
+                                    class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition">
+                            </div>
+                            <button onclick="openAddEmployeeModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-3 rounded-xl transition shadow-lg flex items-center justify-center space-x-2 flex-shrink-0">
+                                <i class="fa-solid fa-user-plus"></i>
+                                <span>Добавить сотрудника</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                    <th class="p-4 w-12 text-center">№</th>
+                                    <th class="p-4">ФИО сотрудника</th>
+                                    <th class="p-4">Пароль входа</th>
+                                    <th class="p-4">Роль</th>
+                                    <th class="p-4">Уровень</th>
+                                    <th class="p-4">Дата начала работы</th>
+                                    <th class="p-4">Отработано за все время</th>
+                                    <th class="p-4 text-right">Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-employees-list" class="divide-y divide-slate-100 text-sm"></tbody>
+                        </table>
+                    </div>
+                    </div>
+                </div>
+
+                <!-- Section 3: Admin Global Shifts Overview -->
+                <div id="admin-section-shifts" class="space-y-6 hidden">
+                    <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 sm:p-8">
+                    <div class="mb-6 pb-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900">Редактирование смен сотрудников</h3>
+                            <p class="text-xs text-slate-500">Нажимайте на ячейки в таблице, чтобы переключать смены</p>
+                            <!-- Key / Legend for shift role indicators -->
+                            <div class="flex flex-wrap items-center gap-3 mt-2 text-[11px] font-medium text-slate-600">
+                                <span class="font-bold text-slate-700">Обозначения:</span>
+                                <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/70">
+                                    <i class="fa-solid fa-cash-register text-[10px]"></i>
+                                    <span>Кассир есть</span>
+                                </span>
+                                <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 border border-rose-300 font-bold">
+                                    <i class="fa-solid fa-triangle-exclamation text-[10px]"></i>
+                                    <span>Нет кассира ⚠️</span>
+                                </span>
+                                <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200/70">
+                                    <i class="fa-solid fa-user-tie text-[10px]"></i>
+                                    <span>Ст. оператор есть</span>
+                                </span>
+                                <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200">
+                                    <i class="fa-solid fa-circle-xmark text-[10px]"></i>
+                                    <span>Ст. оператор отсутствует</span>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-3">
+                            <div class="flex flex-wrap items-center gap-3">
+                                <div class="flex items-center space-x-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
+                                    <i class="fa-regular fa-calendar-days text-indigo-600 text-xs"></i>
+                                    <label for="admin-start-date" class="text-xs font-bold text-slate-600 whitespace-nowrap">Дата старта:</label>
+                                    <input type="date" id="admin-start-date" 
+                                        class="bg-white border border-slate-200 text-xs font-semibold text-slate-800 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <button onclick="applyNewStartDate()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs px-3 py-1.5 rounded-lg transition shadow-sm ml-1">
+                                        Установить старт
+                                    </button>
+                                </div>
+
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-xs font-bold text-slate-600 mr-1" id="weeks-count-label">Недель: 4</span>
+                                    <button onclick="addWeek()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs px-3.5 py-2 rounded-xl transition flex items-center space-x-1.5 shadow-sm">
+                                        <i class="fa-solid fa-plus"></i>
+                                        <span>Добавить неделю</span>
+                                    </button>
+                                    <button onclick="removeWeek()" class="bg-rose-600 hover:bg-rose-700 text-white font-medium text-xs px-3.5 py-2 rounded-xl transition flex items-center space-x-1.5 shadow-sm">
+                                        <i class="fa-solid fa-minus"></i>
+                                        <span>Удалить неделю</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Excel Export Controls Bar -->
+                            <div class="flex flex-wrap items-center gap-2.5 bg-emerald-50/60 border border-emerald-200/80 p-2.5 rounded-2xl">
+                                <div class="flex items-center space-x-1.5 text-emerald-800 text-xs font-bold mr-1">
+                                    <i class="fa-solid fa-file-excel text-emerald-600 text-sm"></i>
+                                    <span>Экспорт в Excel:</span>
+                                </div>
+                                <div class="flex items-center space-x-1.5">
+                                    <label for="excel-export-from" class="text-[11px] font-semibold text-slate-600">С:</label>
+                                    <input type="date" id="excel-export-from" 
+                                        class="bg-white border border-slate-300 text-xs font-semibold text-slate-800 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                </div>
+                                <div class="flex items-center space-x-1.5">
+                                    <label for="excel-export-to" class="text-[11px] font-semibold text-slate-600">По:</label>
+                                    <input type="date" id="excel-export-to" 
+                                        class="bg-white border border-slate-300 text-xs font-semibold text-slate-800 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                </div>
+                                <button id="admin-export-excel-btn" onclick="exportShiftsToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-4 py-2 rounded-xl transition flex items-center space-x-2 shadow-md shadow-emerald-100 cursor-pointer">
+                                    <i class="fa-solid fa-file-arrow-down"></i>
+                                    <span>Скачать Excel</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-separate border-spacing-0 text-xs">
+                            <thead>
+                                <tr id="admin-table-header" class="bg-slate-50 text-slate-600">
+                                    <th class="p-3 font-semibold sticky left-0 top-0 bg-slate-50 z-30 min-w-[260px] border-b border-r border-slate-200">Сотрудник</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-table-body" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                    </div>
+                </div>
+
+                <!-- Section 4: Admin Upcoming Schedule -->
+                <div id="admin-section-upcoming" class="space-y-6 hidden">
+                    <div id="admin-upcoming-container"></div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-400 mt-8">
+        Система планирования смен &copy; 2026
+    </footer>
+
+    <div id="employee-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 hidden backdrop-blur-sm">
+        <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full mx-4 shadow-2xl border border-slate-100">
+            <h3 id="emp-modal-title" class="text-xl font-bold text-slate-900 mb-4">Добавить сотрудника</h3>
+            <input type="hidden" id="edit-emp-id">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Аватар (Животное)</label>
+                    <div class="flex items-center space-x-3">
+                        <div id="modal-avatar-preview" class="w-12 h-12 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0 bg-slate-50"></div>
+                        <button type="button" onclick="randomizeModalAvatar()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition flex items-center space-x-2">
+                            <i class="fa-solid fa-dice"></i>
+                            <span>Случайное животное</span>
+                        </button>
+                    </div>
+                    <input type="hidden" id="modal-emp-avatar">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">ФИО сотрудника</label>
+                    <input type="text" id="modal-emp-name" placeholder="Иванов Иван Иванович" 
+                        class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Пароль для входа</label>
+                    <input type="text" id="modal-emp-pass" placeholder="Придумайте пароль" 
+                        class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Роль сотрудника</label>
+                    <select id="modal-emp-role" 
+                        class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition">
+                        <option value="Админ">Админ</option>
+                        <option value="Старший оператор">Старший оператор</option>
+                        <option value="Кассир">Кассир</option>
+                        <option value="Оператор">Оператор</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Базовый уровень сотрудника (без учета смен)</label>
+                    <input type="number" id="modal-emp-level" value="0" min="0" placeholder="0" 
+                        class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition">
+                    <span class="text-[11px] text-slate-400 mt-1 block">Каждые 10 отработанных смен автоматически прибавят +1 уровень</span>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Дата начала работы на площадке</label>
+                    <input type="date" id="modal-emp-date" 
+                        class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Отработано смен (всего)</label>
+                    <input type="number" id="modal-emp-total-worked" value="0" min="0" placeholder="0" 
+                        class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition">
+                </div>
+            </div>
+            <div class="flex items-center justify-end space-x-3 mt-8">
+                <button type="button" onclick="closeEmployeeModal()" class="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition">Отмена</button>
+                <button type="button" onclick="saveEmployeeData()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition shadow-lg shadow-indigo-100">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ANIMAL_AVATARS = [
+            `<svg viewBox="0 0 100 100" class="w-full h-full"><rect width="100" height="100" fill="#FFEDD5"/><path d="M20 30 L35 10 L50 40 Z" fill="#EA580C"/><path d="M80 30 L65 10 L50 40 Z" fill="#EA580C"/><path d="M25 28 L33 16 L42 35 Z" fill="#FFF"/><path d="M75 28 L67 16 L58 35 Z" fill="#FFF"/><circle cx="50" cy="55" r="32" fill="#F97316"/><path d="M22 55 Q50 90 78 55 Q50 72 22 55 Z" fill="#FFF"/><circle cx="38" cy="50" r="5" fill="#1E293B"/><circle cx="62" cy="50" r="5" fill="#1E293B"/><path d="M45 62 Q50 67 55 62 Z" fill="#1E293B"/></svg>`,
+            `<svg viewBox="0 0 100 100" class="w-full h-full"><rect width="100" height="100" fill="#FEF3C7"/><circle cx="25" cy="25" r="14" fill="#92400E"/><circle cx="75" cy="25" r="14" fill="#92400E"/><circle cx="25" cy="25" r="8" fill="#FDE68A"/><circle cx="75" cy="25" r="8" fill="#FDE68A"/><circle cx="50" cy="55" r="35" fill="#B45309"/><ellipse cx="50" cy="62" rx="20" ry="15" fill="#FDE68A"/><circle cx="38" cy="48" r="5" fill="#1E293B"/><circle cx="62" cy="48" r="5" fill="#1E293B"/><ellipse cx="50" cy="58" rx="7" ry="5" fill="#1E293B"/></svg>`,
+            `<svg viewBox="0 0 100 100" class="w-full h-full"><rect width="100" height="100" fill="#FEF9C3"/><circle cx="50" cy="52" r="42" fill="#D97706"/><circle cx="50" cy="55" r="30" fill="#FBBF24"/><path d="M30 60 Q50 85 70 60 Q50 72 30 60 Z" fill="#FEF3C7"/><circle cx="38" cy="48" r="5" fill="#1E293B"/><circle cx="62" cy="48" r="5" fill="#1E293B"/><polygon points="45,55 55,55 50,62" fill="#78350F"/></svg>`,
+            `<svg viewBox="0 0 100 100" class="w-full h-full"><rect width="100" height="100" fill="#F1F5F9"/><circle cx="25" cy="25" r="13" fill="#1E293B"/><circle cx="75" cy="25" r="13" fill="#1E293B"/><circle cx="50" cy="55" r="35" fill="#FFF"/><ellipse cx="36" cy="50" rx="10" ry="13" fill="#1E293B" transform="rotate(-15 36 50)"/><ellipse cx="64" cy="50" rx="10" ry="13" fill="#1E293B" transform="rotate(15 64 50)"/><circle cx="36" cy="48" r="4" fill="#FFF"/><circle cx="64" cy="48" r="4" fill="#FFF"/><ellipse cx="50" cy="62" rx="6" ry="4" fill="#1E293B"/></svg>`,
+            `<svg viewBox="0 0 100 100" class="w-full h-full"><rect width="100" height="100" fill="#E2E8F0"/><circle cx="22" cy="30" r="18" fill="#64748B"/><circle cx="78" cy="30" r="18" fill="#64748B"/><circle cx="22" cy="30" r="11" fill="#CBD5E1"/><circle cx="78" cy="30" r="11" fill="#CBD5E1"/><circle cx="50" cy="58" r="33" fill="#94A3B8"/><circle cx="38" cy="50" r="4" fill="#1E293B"/><circle cx="62" cy="50" r="4" fill="#1E293B"/><ellipse cx="50" cy="60" rx="10" ry="16" fill="#334155"/></svg>`,
+            `<svg viewBox="0 0 100 100" class="w-full h-full"><rect width="100" height="100" fill="#FCE7F3"/><ellipse cx="35" cy="25" rx="9" ry="24" fill="#F472B6"/><ellipse cx="65" cy="25" rx="9" ry="24" fill="#F472B6"/><ellipse cx="35" cy="25" rx="5" ry="18" fill="#FBCFE8"/><ellipse cx="65" cy="25" rx="5" ry="18" fill="#FBCFE8"/><circle cx="50" cy="60" r="32" fill="#FFF"/><circle cx="38" cy="54" r="5" fill="#1E293B"/><circle cx="62" cy="54" r="5" fill="#1E293B"/><polygon points="46,62 54,62 50,66" fill="#F472B6"/></svg>`,
+            `<svg viewBox="0 0 100 100" class="w-full h-full"><rect width="100" height="100" fill="#FFEDD5"/><circle cx="25" cy="25" r="12" fill="#F97316"/><circle cx="75" cy="25" r="12" fill="#F97316"/><circle cx="50" cy="55" r="35" fill="#F97316"/><path d="M30 62 Q50 85 70 62 Q50 72 30 62 Z" fill="#FFF"/><polygon points="50,30 45,20 55,20" fill="#1E293B"/><polygon points="35,40 25,38 32,45" fill="#1E293B"/><polygon points="65,40 75,38 68,45" fill="#1E293B"/><circle cx="38" cy="50" r="5" fill="#1E293B"/><circle cx="62" cy="50" r="5" fill="#1E293B"/><polygon points="46,60 54,60 50,65" fill="#1E293B"/></svg>`,
+            `<svg viewBox="0 0 100 100" class="w-full h-full"><rect width="100" height="100" fill="#E0E7FF"/><circle cx="50" cy="55" r="36" fill="#6366F1"/><circle cx="38" cy="48" r="14" fill="#FFF"/><circle cx="62" cy="48" r="14" fill="#FFF"/><circle cx="38" cy="48" r="6" fill="#1E293B"/><circle cx="62" cy="48" r="6" fill="#1E293B"/><polygon points="46,58 54,58 50,68" fill="#F59E0B"/><path d="M30 75 Q50 90 70 75 Q50 82 30 75 Z" fill="#C7D2FE"/></svg>`,
+            `<svg viewBox="0 0 100 100" class="w-full h-full"><rect width="100" height="100" fill="#CCFBF1"/><circle cx="50" cy="55" r="35" fill="#0F172A"/><ellipse cx="50" cy="58" rx="22" ry="26" fill="#FFF"/><circle cx="38" cy="45" r="4" fill="#0F172A"/><circle cx="62" cy="45" r="4" fill="#0F172A"/><polygon points="44,52 56,52 50,62" fill="#F59E0B"/></svg>`,
+            `<svg viewBox="0 0 100 100" class="w-full h-full"><rect width="100" height="100" fill="#F3E8FF"/><polygon points="20,40 30,12 45,32" fill="#A855F7"/><polygon points="80,40 70,12 55,32" fill="#A855F7"/><polygon points="24,36 31,18 41,30" fill="#F472B6"/><polygon points="76,36 69,18 59,30" fill="#F472B6"/><circle cx="50" cy="55" r="32" fill="#C084FC"/><ellipse cx="38" cy="50" rx="5" ry="7" fill="#1E293B"/><ellipse cx="62" cy="50" rx="5" ry="7" fill="#1E293B"/><polygon points="46,58 54,58 50,63" fill="#F472B6"/></svg>`,
+            `<svg viewBox="0 0 100 100" class="w-full h-full"><rect width="100" height="100" fill="#FFEDD5"/><ellipse cx="22" cy="45" rx="12" ry="22" fill="#78350F"/><ellipse cx="78" cy="45" rx="12" ry="22" fill="#78350F"/><circle cx="50" cy="55" r="32" fill="#D97706"/><ellipse cx="50" cy="62" rx="16" ry="12" fill="#FEF3C7"/><circle cx="38" cy="48" r="5" fill="#1E293B"/><circle cx="62" cy="48" r="5" fill="#1E293B"/><ellipse cx="50" cy="58" rx="7" ry="5" fill="#1E293B"/></svg>`,
+            `<svg viewBox="0 0 100 100" class="w-full h-full"><rect width="100" height="100" fill="#F1F5F9"/><polygon points="22,35 30,15 45,30" fill="#475569"/><polygon points="78,35 70,15 55,30" fill="#475569"/><circle cx="50" cy="55" r="33" fill="#94A3B8"/><path d="M20 52 Q50 35 80 52 Q50 72 20 52 Z" fill="#334155"/><ellipse cx="35" cy="52" rx="8" ry="6" fill="#FFF"/><ellipse cx="65" cy="52" rx="8" ry="6" fill="#FFF"/><circle cx="35" cy="52" r="4" fill="#1E293B"/><circle cx="65" cy="52" r="4" fill="#1E293B"/><ellipse cx="50" cy="62" rx="6" ry="4" fill="#1E293B"/></svg>`
+        ];
+
+        function getAvatarSVG(idx) {
+            const index = (idx !== undefined && idx !== null) ? Math.abs(idx) % ANIMAL_AVATARS.length : 0;
+            return ANIMAL_AVATARS[index];
+        }
+
+
+        function safeGet(key) {
+            try { return localStorage.getItem(key); } catch (e) { return null; }
+        }
+        function safeSet(key, val) {
+            try { localStorage.setItem(key, val); } catch (e) {}
+        }
+
+        const weekDaysNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+        const monthsNames = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+
+        let weeksCount = JSON.parse(safeGet('shift_app_weeks_count_v9')) || 4;
+        let startDateISO = safeGet('shift_app_start_date_v9');
+
+        if (!startDateISO) {
+            const today = new Date();
+            const currentDayOfWeek = today.getDay();
+            const distToMonday = (currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek);
+            const startMonday = new Date(today);
+            startMonday.setDate(today.getDate() + distToMonday);
+            startDateISO = startMonday.toISOString().split('T')[0];
+            safeSet('shift_app_start_date_v9', startDateISO);
+        }
+
+        let daysMeta = [];
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        function formatDateKey(dateObj) {
+            const yyyy = dateObj.getFullYear();
+            const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const dd = String(dateObj.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        function generateDaysMeta() {
+            daysMeta = [];
+            const [year, month, day] = startDateISO.split('-').map(Number);
+            const startMonday = new Date(year, month - 1, day);
+
+            const totalDays = weeksCount * 7;
+            for (let i = 0; i < totalDays; i++) {
+                const d = new Date(startMonday);
+                d.setDate(startMonday.getDate() + i);
+                const dayIdxInWeek = (d.getDay() + 6) % 7; 
+                const isoDate = formatDateKey(d);
+
+                daysMeta.push({
+                    dayIndex: i,
+                    dayNumber: i + 1,
+                    weekDayName: weekDaysNames[dayIdxInWeek],
+                    dateStr: `${d.getDate()} ${monthsNames[d.getMonth()]}`,
+                    isoDate: isoDate,
+                    fullDate: d
+                });
+            }
+        }
+
+        generateDaysMeta();
+
+        // Calculate only confirmed, completed shifts (past dates < todayStr, excluding future or unassigned shifts)
+        function calculateLifetimeWorkedShifts(emp) {
+            if (!emp) return 0;
+            let currentPastCount = 0;
+            if (emp.shiftMap) {
+                Object.keys(emp.shiftMap).forEach(isoDate => {
+                    if (emp.shiftMap[isoDate] && isoDate < todayStr) {
+                        currentPastCount++;
+                    }
+                });
+            }
+            const accumulated = emp.accumulatedWorkedShifts !== undefined ? emp.accumulatedWorkedShifts : 0;
+            return accumulated + currentPastCount;
+        }
+
+        // Automatic Level Calculation:
+        // Level increases by +1 for every 10 completed shifts (Math.floor(completedShifts / 10)).
+        // Preserves manual admin adjustments via baseLevel.
+        function getEffectiveLevel(emp) {
+            if (!emp) return 0;
+            const completed = calculateLifetimeWorkedShifts(emp);
+            const earnedBonus = Math.floor(completed / 10);
+            const base = (emp.baseLevel !== undefined && emp.baseLevel !== null) 
+                ? Number(emp.baseLevel) 
+                : Number(emp.level || 0);
+            return Math.max(0, base + earnedBonus);
+        }
+
+        function syncEmployeeCalculations(emp) {
+            if (!emp) return;
+            emp.totalWorkedShifts = calculateLifetimeWorkedShifts(emp);
+            emp.level = getEffectiveLevel(emp);
+        }
+
+        const defaultEmployees = [
+            { id: 'emp_1', name: 'Иванов Иван Иванович', password: '111', role: 'Оператор', baseLevel: 0, level: 0, avatarIdx: 0, createdAt: todayStr, accumulatedWorkedShifts: 0, shiftMap: {}, statusInfo: { gph: 'нет', docs: 'нет', photo: 'нет', tb: 'нет', scripts: 'нет' } },
+            { id: 'emp_2', name: 'Петров Пётр Петрович', password: '222', role: 'Старший оператор', baseLevel: 0, level: 0, avatarIdx: 1, createdAt: todayStr, accumulatedWorkedShifts: 0, shiftMap: {}, statusInfo: { gph: 'нет', docs: 'нет', photo: 'нет', tb: 'нет', scripts: 'нет' } },
+            { id: 'emp_3', name: 'Смирнова Анна Сергеевна', password: '333', role: 'Кассир', baseLevel: 0, level: 0, avatarIdx: 5, createdAt: todayStr, accumulatedWorkedShifts: 0, shiftMap: {}, statusInfo: { gph: 'нет', docs: 'нет', photo: 'нет', tb: 'нет', scripts: 'нет' } }
+        ];
+
+        let employees = JSON.parse(safeGet('shift_app_employees_v9')) || defaultEmployees;
+        let isShiftsLocked = JSON.parse(safeGet('shift_app_is_locked_v9')) || false;
+
+        const ALLOWED_ROLES = ['Админ', 'Старший оператор', 'Кассир', 'Оператор'];
+
+        function normalizeEmployeeRole(role) {
+            if (role === 'Менеджер') return 'Старший оператор';
+            if (role === 'Сотрудник') return 'Оператор';
+            if (ALLOWED_ROLES.includes(role)) return role;
+            return 'Оператор';
+        }
+
+        function getRoleBadgeMarkup(role) {
+            const normalized = normalizeEmployeeRole(role);
+            switch (normalized) {
+                case 'Админ':
+                    return `<span class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200/80 text-[10px] font-extrabold flex-shrink-0" title="Роль: Админ"><i class="fa-solid fa-shield-halved text-[9px]"></i><span>Админ</span></span>`;
+                case 'Старший оператор':
+                    return `<span class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200/80 text-[10px] font-bold flex-shrink-0" title="Роль: Старший оператор"><i class="fa-solid fa-user-tie text-[9px]"></i><span>Старший оператор</span></span>`;
+                case 'Кассир':
+                    return `<span class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[10px] font-bold flex-shrink-0" title="Роль: Кассир"><i class="fa-solid fa-cash-register text-[9px]"></i><span>Кассир</span></span>`;
+                case 'Оператор':
+                default:
+                    return `<span class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200/80 text-[10px] font-medium flex-shrink-0" title="Роль: Оператор"><i class="fa-solid fa-user text-[9px]"></i><span>Оператор</span></span>`;
+            }
+        }
+
+        employees.forEach((emp, idx) => {
+            if (!emp.createdAt) emp.createdAt = todayStr;
+            emp.role = normalizeEmployeeRole(emp.role);
+            if (emp.baseLevel === undefined || emp.baseLevel === null) {
+                emp.baseLevel = (emp.level !== undefined && emp.level !== null) ? Number(emp.level) : 0;
+            }
+            if (emp.avatarIdx === undefined || emp.avatarIdx === null) emp.avatarIdx = idx % ANIMAL_AVATARS.length;
+            if (!emp.shiftMap) emp.shiftMap = {};
+            if (!emp.statusInfo) {
+                emp.statusInfo = { gph: 'нет', docs: 'нет', photo: 'нет', tb: 'нет', scripts: 'нет' };
+            }
+            if (emp.accumulatedWorkedShifts === undefined || emp.accumulatedWorkedShifts === null) {
+                emp.accumulatedWorkedShifts = 0;
+            }
+            syncEmployeeCalculations(emp);
+        });
+
+        let currentUser = JSON.parse(safeGet('shift_app_current_user_v9')) || null;
+        let currentEditingShiftMap = {};
+
+        function persistData() {
+            employees.forEach(emp => {
+                syncEmployeeCalculations(emp);
+            });
+            safeSet('shift_app_employees_v9', JSON.stringify(employees));
+            safeSet('shift_app_current_user_v9', JSON.stringify(currentUser));
+            safeSet('shift_app_is_locked_v9', JSON.stringify(isShiftsLocked));
+            safeSet('shift_app_weeks_count_v9', JSON.stringify(weeksCount));
+            safeSet('shift_app_start_date_v9', startDateISO);
+        }
+
+        function showModal(title, message, iconType = 'info') {
+            const container = document.getElementById('modal-container');
+            const titleEl = document.getElementById('modal-title');
+            const msgEl = document.getElementById('modal-message');
+            const iconEl = document.getElementById('modal-icon');
+
+            titleEl.innerText = title;
+            msgEl.innerText = message;
+
+            if (iconType === 'success') {
+                iconEl.innerHTML = '<i class="fa-solid fa-circle-check text-emerald-500"></i>';
+            } else if (iconType === 'error') {
+                iconEl.innerHTML = '<i class="fa-solid fa-circle-xmark text-rose-500"></i>';
+            } else {
+                iconEl.innerHTML = '<i class="fa-solid fa-circle-info text-indigo-500"></i>';
+            }
+
+            container.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-container').classList.add('hidden');
+        }
+
+        function handleLogin() {
+            const passInput = document.getElementById('login-password');
+            const pass = passInput ? passInput.value.trim() : '';
+
+            if (pass === '2001200115') {
+                currentUser = { role: 'admin', name: 'Администратор' };
+                persistData();
+                showAdminView();
+                if (passInput) passInput.value = '';
+                return;
+            }
+
+            const emp = employees.find(e => String(e.password) === String(pass));
+            if (emp) {
+                currentUser = { role: 'employee', id: emp.id, name: emp.name };
+                currentEditingShiftMap = { ...(emp.shiftMap || {}) };
+                persistData();
+                showEmployeeView();
+                if (passInput) passInput.value = '';
+                return;
+            }
+
+            showModal('Ошибка входа', 'Неверный пароль. Попробуйте еще раз.', 'error');
+        }
+
+        function logout() {
+            currentUser = null;
+            persistData();
+            document.getElementById('view-employee').classList.add('hidden');
+            document.getElementById('view-admin').classList.add('hidden');
+            document.getElementById('app-header').classList.add('hidden');
+            document.getElementById('view-login').classList.remove('hidden');
+        }
+
+        function canManageDocuments() {
+            if (!currentUser) return false;
+            if (currentUser.role === 'admin') return true;
+            if (currentUser.role === 'employee') {
+                const emp = employees.find(e => String(e.id) === String(currentUser.id));
+                const currentRole = emp ? normalizeEmployeeRole(emp.role) : '';
+                return currentRole === 'Старший оператор' || currentRole === 'Админ';
+            }
+            return false;
+        }
+
+        function switchAdminSection(target) {
+            const docsSection = document.getElementById('admin-section-docs');
+            const empSection = document.getElementById('admin-section-employees');
+            const shiftsSection = document.getElementById('admin-section-shifts');
+            const upcomingSection = document.getElementById('admin-section-upcoming');
+            const btnDocs = document.getElementById('admin-tab-docs-btn');
+            const btnEmp = document.getElementById('admin-tab-employees-btn');
+            const btnShifts = document.getElementById('admin-tab-shifts-btn');
+            const btnUpcoming = document.getElementById('admin-tab-upcoming-btn');
+
+            if (!docsSection || !empSection || !shiftsSection || !upcomingSection || !btnDocs || !btnEmp || !btnShifts || !btnUpcoming) return;
+
+            const activeClass = 'bg-indigo-600 text-white font-semibold px-5 py-3 rounded-xl transition shadow-sm flex items-center space-x-2';
+            const inactiveClass = 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold px-5 py-3 rounded-xl transition shadow-sm flex items-center space-x-2';
+
+            docsSection.classList.add('hidden');
+            empSection.classList.add('hidden');
+            shiftsSection.classList.add('hidden');
+            upcomingSection.classList.add('hidden');
+
+            btnDocs.className = inactiveClass;
+            btnEmp.className = inactiveClass;
+            btnShifts.className = inactiveClass;
+            btnUpcoming.className = inactiveClass;
+
+            if (target === 'docs') {
+                mountDocumentsSummaryBlock('admin-section-docs');
+                docsSection.classList.remove('hidden');
+                btnDocs.className = activeClass;
+            } else if (target === 'employees') {
+                empSection.classList.remove('hidden');
+                btnEmp.className = activeClass;
+            } else if (target === 'shifts') {
+                shiftsSection.classList.remove('hidden');
+                btnShifts.className = activeClass;
+                renderSharedTable('admin-table-header', 'admin-table-body', true);
+            } else if (target === 'upcoming') {
+                mountUpcomingScheduleBlock('admin-upcoming-container');
+                upcomingSection.classList.remove('hidden');
+                btnUpcoming.className = activeClass;
+                renderUpcomingScheduleSection();
+            }
+        }
+
+        function mountUpcomingScheduleBlock(targetContainerId) {
+            const upcomingBlock = document.getElementById('section-upcoming-schedule');
+            const targetContainer = document.getElementById(targetContainerId);
+            if (upcomingBlock && targetContainer && upcomingBlock.parentElement !== targetContainer) {
+                targetContainer.appendChild(upcomingBlock);
+                upcomingBlock.classList.remove('hidden');
+            }
+        }
+
+        function mountDocumentsSummaryBlock(targetContainerId) {
+            // Role-based access guard: only Admins and Senior Operators can mount or view the summary monitor
+            if (currentUser && currentUser.role === 'employee') {
+                const emp = employees.find(e => String(e.id) === String(currentUser.id));
+                const currentRole = emp ? normalizeEmployeeRole(emp.role) : '';
+                if (currentRole !== 'Старший оператор') {
+                    return;
+                }
+            }
+            const summaryMarkup = document.getElementById('admin-summary-container');
+            const targetContainer = document.getElementById(targetContainerId);
+            if (summaryMarkup && targetContainer && summaryMarkup.parentElement !== targetContainer) {
+                targetContainer.appendChild(summaryMarkup);
+            }
+            renderStatusSummaryTable();
+        }
+
+        function switchEmployeeSection(target) {
+            const schedSection = document.getElementById('section-shift-schedule');
+            const compSection = document.getElementById('section-company-table');
+            const upSection = document.getElementById('section-upcoming-schedule');
+            const docsSection = document.getElementById('section-employee-docs');
+
+            const btnSched = document.getElementById('btn-show-schedule');
+            const btnComp = document.getElementById('btn-show-shared');
+            const btnUp = document.getElementById('btn-show-upcoming');
+            const btnDocs = document.getElementById('btn-show-emp-docs');
+
+            if (!schedSection || !compSection || !upSection || !btnSched || !btnComp || !btnUp) return;
+
+            const activeClass = 'bg-indigo-600 text-white font-semibold px-5 py-3 rounded-xl transition shadow-sm flex items-center space-x-2';
+            const inactiveClass = 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold px-5 py-3 rounded-xl transition shadow-sm flex items-center space-x-2';
+
+            schedSection.classList.add('hidden');
+            compSection.classList.add('hidden');
+            upSection.classList.add('hidden');
+            if (docsSection) docsSection.classList.add('hidden');
+
+            btnSched.className = inactiveClass;
+            btnComp.className = inactiveClass;
+            btnUp.className = inactiveClass;
+            if (btnDocs) btnDocs.className = inactiveClass;
+
+            if (target === 'docs') {
+                if (docsSection) {
+                    const empDocsContainer = document.getElementById('employee-docs-container');
+                    if (empDocsContainer) {
+                        // Clear container and create dedicated slots for personal status and optional summary
+                        empDocsContainer.innerHTML = `
+                            <div id="employee-personal-docs-slot" class="space-y-6"></div>
+                            <div id="employee-summary-docs-slot" class="space-y-6 mt-8 hidden"></div>
+                        `;
+
+                        // 1. Always render the authenticated employee's personal document & clearance statuses
+                        renderPersonalDocumentsReadOnly('employee-personal-docs-slot');
+
+                        // 2. Role-based summary access: ONLY "Старший оператор" sees the team-wide summary
+                        const emp = (currentUser && currentUser.role === 'employee')
+                            ? employees.find(e => String(e.id) === String(currentUser.id))
+                            : null;
+                        const currentRole = emp ? normalizeEmployeeRole(emp.role) : '';
+
+                        const summarySlot = document.getElementById('employee-summary-docs-slot');
+                        if (currentRole === 'Старший оператор' && summarySlot) {
+                            summarySlot.classList.remove('hidden');
+                            mountDocumentsSummaryBlock('employee-summary-docs-slot');
+                        }
+                    }
+                    docsSection.classList.remove('hidden');
+                }
+                if (btnDocs) btnDocs.className = activeClass;
+                return;
+            }
+
+            if (target === 'schedule') {
+                schedSection.classList.remove('hidden');
+                btnSched.className = activeClass;
+            } else if (target === 'shared') {
+                compSection.classList.remove('hidden');
+                btnComp.className = activeClass;
+            } else if (target === 'upcoming') {
+                mountUpcomingScheduleBlock('view-employee');
+                const empDashboard = document.querySelector('#view-employee .space-y-8');
+                if (empDashboard && upSection.parentElement !== empDashboard) {
+                    empDashboard.appendChild(upSection);
+                }
+                upSection.classList.remove('hidden');
+                btnUp.className = activeClass;
+                renderUpcomingScheduleSection();
+            }
+        }
+
+        function renderUpcomingScheduleSection() {
+            const container = document.getElementById('upcoming-days-container');
+            if (!container) return;
+
+            container.innerHTML = '';
+
+            const today = new Date();
+            const dayNamesFull = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+
+            for (let offset = 0; offset < 2; offset++) {
+                const targetDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
+                const isoDate = formatDateKey(targetDate);
+                const dayOfWeek = dayNamesFull[targetDate.getDay()];
+                const formattedDisplay = `${targetDate.getDate()} ${monthsNames[targetDate.getMonth()]} ${targetDate.getFullYear()}`;
+                const isToday = offset === 0;
+
+                // Query assigned employees using live employees data
+                const assignedEmployees = employees.filter(emp => {
+                    if (currentUser && currentUser.role === 'employee' && String(emp.id) === String(currentUser.id)) {
+                        return !!currentEditingShiftMap[isoDate];
+                    }
+                    return !!(emp.shiftMap && emp.shiftMap[isoDate]);
+                });
+
+                const card = document.createElement('div');
+                card.className = `rounded-2xl border p-4 sm:p-5 transition flex flex-col justify-start h-full ${
+                    isToday ? 'bg-indigo-50/40 border-indigo-200 shadow-sm ring-1 ring-indigo-200' : 'bg-slate-50/70 border-slate-200'
+                }`;
+
+                let assignedListHtml = '';
+                if (assignedEmployees.length === 0) {
+                    assignedListHtml = `
+                        <div class="py-6 px-4 bg-white/80 border border-dashed border-slate-200 rounded-xl text-center text-slate-400 text-xs font-medium">
+                            <i class="fa-solid fa-user-slash text-base mb-1.5 block opacity-50"></i>
+                            Сотрудники не назначены
+                        </div>
+                    `;
+                } else {
+                    const isDense = assignedEmployees.length > 7;
+                    const items = assignedEmployees.map(emp => {
+                        const isCurrentAuthUser = !!(currentUser && currentUser.role === 'employee' && String(emp.id) === String(currentUser.id));
+                        const itemBgClasses = isCurrentAuthUser 
+                            ? 'bg-indigo-50/80 border-indigo-300 ring-1 ring-indigo-300/80' 
+                            : 'bg-white border-slate-100/90 shadow-2xs';
+                        const youBadge = isCurrentAuthUser 
+                            ? `<span class="bg-indigo-600 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full uppercase tracking-wider flex-shrink-0">Вы</span>` 
+                            : '';
+                        const nameClasses = isCurrentAuthUser 
+                            ? 'font-bold text-indigo-950 break-words leading-tight flex-1' 
+                            : 'font-semibold text-slate-900 break-words leading-tight flex-1';
+
+                        syncEmployeeCalculations(emp);
+                        const effectiveLvl = emp.level !== undefined && emp.level !== null ? emp.level : 0;
+                        const levelBadge = `<span class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200/80 text-[10px] font-bold flex-shrink-0" title="Уровень сотрудника: ${effectiveLvl}"><i class="fa-solid fa-star text-[8px] text-amber-400"></i><span>Ур. ${effectiveLvl}</span></span>`;
+
+                        return `
+                        <li class="flex items-center justify-between ${isDense ? 'py-1 px-2.5 text-xs' : 'py-2 px-3 text-xs sm:text-sm'} rounded-xl border ${itemBgClasses} gap-3 transition">
+                            <div class="flex items-center space-x-2.5 min-w-0 flex-1">
+                                <div class="${isDense ? 'w-6 h-6' : 'w-7 h-7'} rounded-lg overflow-hidden border ${isCurrentAuthUser ? 'border-indigo-300' : 'border-slate-200'} flex-shrink-0 bg-slate-50">
+                                    ${getAvatarSVG(emp.avatarIdx)}
+                                </div>
+                                <div class="flex items-center space-x-1.5 min-w-0 flex-1 flex-wrap">
+                                    <span class="${nameClasses}" title="${emp.name}">${emp.name}</span>
+                                    ${levelBadge}
+                                    ${youBadge}
+                                </div>
+                            </div>
+                            <span class="text-[10px] font-bold ${isCurrentAuthUser ? 'text-indigo-800 bg-indigo-100/80 border border-indigo-200' : 'text-indigo-700 bg-indigo-50 border border-indigo-100'} px-2 py-0.5 rounded-md flex-shrink-0 whitespace-nowrap self-center">
+                                ${emp.role || 'Сотрудник'}
+                            </span>
+                        </li>
+                    `;
+                    }).join('');
+                    assignedListHtml = `<ul class="${isDense ? 'space-y-1.5' : 'space-y-2'}">${items}</ul>`;
+                }
+
+                card.innerHTML = `
+                    <div class="w-full">
+                        <div class="flex items-center justify-between mb-3 pb-2.5 border-b border-slate-200/80">
+                            <div>
+                                <div class="flex items-center space-x-2">
+                                    <h4 class="font-bold text-slate-900 text-sm sm:text-base">${formattedDisplay}</h4>
+                                    ${isToday 
+                                        ? '<span class="bg-indigo-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">Сегодня</span>' 
+                                        : '<span class="bg-slate-200 text-slate-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">Завтра</span>'}
+                                </div>
+                                <span class="text-xs text-slate-500 font-medium">${dayOfWeek}</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-xs font-extrabold px-2.5 py-1 rounded-lg inline-block whitespace-nowrap ${
+                                    assignedEmployees.length >= 10 
+                                        ? 'bg-amber-100 text-amber-800 border border-amber-200' 
+                                        : assignedEmployees.length > 0 
+                                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
+                                            : 'bg-slate-200/70 text-slate-600'
+                                }">
+                                    ${assignedEmployees.length} сотрудников
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2">
+                            <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                                <span>Назначенные сотрудники</span>
+                            </div>
+                            ${assignedListHtml}
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(card);
+            }
+        }
+
+        function showEmployeeView() {
+            document.getElementById('view-login').classList.add('hidden');
+            document.getElementById('view-admin').classList.add('hidden');
+            document.getElementById('view-employee').classList.remove('hidden');
+
+            const header = document.getElementById('app-header');
+            header.classList.remove('hidden');
+
+            const emp = employees.find(e => e.id === currentUser.id);
+            if (!emp) return;
+
+            const roleText = normalizeEmployeeRole(emp.role);
+            emp.role = roleText;
+            document.getElementById('user-role-display').innerText = roleText;
+            document.getElementById('emp-banner-role-text').innerText = roleText;
+            document.getElementById('header-username').innerText = emp.name;
+            document.getElementById('header-avatar').innerHTML = getAvatarSVG(emp.avatarIdx);
+            document.getElementById('emp-banner-avatar').innerHTML = getAvatarSVG(emp.avatarIdx);
+            document.getElementById('emp-welcome-name').innerText = emp.name;
+
+            // Recalculate confirmed shifts and resulting level
+            syncEmployeeCalculations(emp);
+            const totalWorked = emp.totalWorkedShifts;
+            const earnedLevelBonus = Math.floor(totalWorked / 10);
+            
+            const empLevelBadge = document.getElementById('emp-banner-level');
+            if (empLevelBadge) {
+                empLevelBadge.innerHTML = `<i class="fa-solid fa-star text-amber-300 text-[10px]"></i><span>Уровень: ${emp.level}</span>`;
+            }
+
+            if (emp.createdAt) {
+                const createdDate = new Date(emp.createdAt);
+                const diffTime = Math.abs(new Date() - createdDate);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                document.getElementById('emp-days-subtitle').innerText = `Вы уже с нами ${diffDays} дней!`;
+            } else {
+                document.getElementById('emp-days-subtitle').innerText = `Активный сотрудник`;
+            }
+
+            const totalWorkedEl = document.getElementById('emp-total-worked-count');
+            if (totalWorkedEl) totalWorkedEl.innerText = totalWorked;
+
+            const progressSubtext = document.getElementById('emp-level-progress-subtext');
+            if (progressSubtext) {
+                const remainder = totalWorked % 10;
+                const toNext = 10 - remainder;
+                progressSubtext.innerText = `+${earnedLevelBonus} ур. (${remainder}/10, до след. +1 ур.: ${toNext})`;
+            }
+
+            // Documents button is always visible for all employees
+            const empDocsBtn = document.getElementById('btn-show-emp-docs');
+            if (empDocsBtn) empDocsBtn.classList.remove('hidden');
+
+            const lockedAlert = document.getElementById('shifts-locked-alert');
+            const saveBtnTop = document.getElementById('emp-save-btn-top');
+            const saveBtnBottom = document.getElementById('emp-save-btn-bottom');
+            const instructionText = document.getElementById('calendar-instruction-text');
+
+            if (isShiftsLocked) {
+                lockedAlert.classList.remove('hidden');
+                if (saveBtnTop) saveBtnTop.disabled = false;
+                if (saveBtnBottom) saveBtnBottom.disabled = false;
+                if (instructionText) instructionText.innerText = 'Блокировка активна: доступны смены, где сохранено менее 10 сотрудников (смены с 10+ заблокированы для новых записей)';
+            } else {
+                lockedAlert.classList.add('hidden');
+                if (saveBtnTop) saveBtnTop.disabled = false;
+                if (saveBtnBottom) saveBtnBottom.disabled = false;
+                if (instructionText) instructionText.innerText = 'Нажмите на день, чтобы переключить статус';
+            }
+
+            renderEmployeeWeeksContainer();
+            updateEmployeeSelectedCount();
+            renderSharedTable('shared-table-header', 'shared-table-body', false);
+            renderUpcomingScheduleSection();
+            switchEmployeeSection('schedule');
+        }
+
+        // Returns count of officially saved employees for a given shift date
+        function getSavedShiftEmployeeCount(isoDate) {
+            let count = 0;
+            employees.forEach(e => {
+                if (e.shiftMap && e.shiftMap[isoDate]) {
+                    count++;
+                }
+            });
+            return count;
+        }
+
+        // Determines if a shift can be edited by the current employee under lock conditions
+        function isShiftEditableForEmployee(isoDate) {
+            if (!isShiftsLocked) return true;
+            
+            const savedCount = getSavedShiftEmployeeCount(isoDate);
+            const mySavedShift = !!(currentUser && employees.find(e => String(e.id) === String(currentUser.id))?.shiftMap?.[isoDate]);
+
+            // If shift has fewer than 10 saved employees, it is available to select/deselect
+            if (savedCount < 10) return true;
+
+            // If shift has 10 or more saved employees, an employee already assigned to it
+            // is still permitted to deselect/cancel their shift (which drops count back down)
+            if (mySavedShift) return true;
+
+            // Otherwise, locked to prevent new employees from joining
+            return false;
+        }
+
+        function renderEmployeeWeeksContainer() {
+            const container = document.getElementById('employee-weeks-container');
+            if (!container) return;
+
+            container.innerHTML = '';
+            const totalWeeks = Math.ceil(daysMeta.length / 7);
+
+            for (let w = 0; w < totalWeeks; w++) {
+                const weekDiv = document.createElement('div');
+                weekDiv.className = 'bg-slate-50 border border-slate-200/80 rounded-2xl p-4 sm:p-5';
+
+                const weekTitle = document.createElement('h4');
+                weekTitle.className = 'text-xs font-bold text-slate-500 uppercase tracking-wider mb-3';
+                weekTitle.innerText = `Неделя ${w + 1}`;
+                weekDiv.appendChild(weekTitle);
+
+                const grid = document.createElement('div');
+                grid.className = 'grid grid-cols-2 sm:grid-cols-7 gap-3';
+
+                for (let d = 0; d < 7; d++) {
+                    const dayIndex = w * 7 + d;
+                    if (dayIndex >= daysMeta.length) break;
+
+                    const dayMeta = daysMeta[dayIndex];
+                    const isSelected = !!currentEditingShiftMap[dayMeta.isoDate];
+                    const savedCount = getSavedShiftEmployeeCount(dayMeta.isoDate);
+                    const editable = isShiftEditableForEmployee(dayMeta.isoDate);
+
+                    const dayCard = document.createElement('div');
+                    
+                    let baseClasses = 'flex flex-col items-center justify-center p-3 rounded-2xl border transition-all text-center ';
+                    if (!editable) {
+                        baseClasses += isSelected 
+                            ? 'bg-indigo-900/80 text-white border-indigo-900 opacity-80 cursor-not-allowed shadow-none' 
+                            : 'bg-slate-100 text-slate-400 border-slate-200 opacity-60 cursor-not-allowed';
+                    } else {
+                        baseClasses += isSelected 
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-100 cursor-pointer hover:bg-indigo-700' 
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:bg-slate-50 cursor-pointer';
+                    }
+
+                    let countBadgeStyle = '';
+                    if (savedCount >= 10) {
+                        countBadgeStyle = isSelected ? 'bg-amber-400 text-slate-900 font-extrabold' : 'bg-rose-100 text-rose-700 font-extrabold border border-rose-200';
+                    } else {
+                        countBadgeStyle = isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600';
+                    }
+
+                    dayCard.className = baseClasses;
+                    dayCard.innerHTML = `
+                        <div class="flex items-center justify-between w-full px-1 mb-1">
+                            <span class="text-[11px] font-semibold uppercase opacity-80">${dayMeta.weekDayName}</span>
+                            ${!editable ? '<i class="fa-solid fa-lock text-[10px] text-amber-300" title="Заблокировано (достигнут лимит 10 сотрудников)"></i>' : ''}
+                        </div>
+                        <span class="text-sm font-bold">${dayMeta.dateStr}</span>
+                        <span class="text-[10px] mt-1 px-2 py-0.5 rounded-full ${isSelected ? 'bg-white/20 text-white font-semibold' : 'bg-slate-100 text-slate-500'}">
+                            ${isSelected ? '<i class="fa-solid fa-check mr-1"></i>Смена' : 'Выходной'}
+                        </span>
+                        <span class="text-[10px] mt-1.5 px-2 py-0.5 rounded-md ${countBadgeStyle}">
+                            (${savedCount}/10)
+                        </span>
+                    `;
+
+                    if (editable) {
+                        dayCard.onclick = () => toggleEmployeeDay(dayMeta.isoDate);
+                    }
+
+                    grid.appendChild(dayCard);
+                }
+
+                weekDiv.appendChild(grid);
+                container.appendChild(weekDiv);
+            }
+        }
+
+        function toggleEmployeeDay(isoDate) {
+            if (!isShiftEditableForEmployee(isoDate)) {
+                showModal('Смена заблокирована', 'Для данной даты уже набрано 10 или более сохраненных сотрудников при активной блокировке графика.', 'error');
+                return;
+            }
+            currentEditingShiftMap[isoDate] = !currentEditingShiftMap[isoDate];
+            renderEmployeeWeeksContainer();
+            updateEmployeeSelectedCount();
+            renderUpcomingScheduleSection();
+        }
+
+        function updateEmployeeSelectedCount() {
+            const count = Object.values(currentEditingShiftMap).filter(Boolean).length;
+            const countEl = document.getElementById('emp-selected-count');
+            if (countEl) countEl.innerText = `${count} / ${daysMeta.length}`;
+        }
+
+        function saveEmployeeShifts() {
+            // Re-read storage to protect against concurrent saves by other employees
+            const storedEmployees = JSON.parse(safeGet('shift_app_employees_v9')) || employees;
+            employees = storedEmployees;
+
+            const emp = employees.find(e => String(e.id) === String(currentUser.id));
+            if (!emp) return;
+
+            const originalShifts = emp.shiftMap || {};
+
+            // Enforce atomic validation when admin lock is enabled
+            if (isShiftsLocked) {
+                const addedDates = Object.keys(currentEditingShiftMap).filter(
+                    date => !!currentEditingShiftMap[date] && !originalShifts[date]
+                );
+
+                for (const date of addedDates) {
+                    let currentSavedCount = 0;
+                    employees.forEach(e => {
+                        if (e.shiftMap && e.shiftMap[date]) currentSavedCount++;
+                    });
+
+                    // If other employees already reached the 10-person threshold
+                    if (currentSavedCount >= 10) {
+                        // Revert this selection in the local buffer
+                        delete currentEditingShiftMap[date];
+                        renderEmployeeWeeksContainer();
+                        updateEmployeeSelectedCount();
+                        showModal('Лимит исчерпан', `Смена на дату ${date} уже набрала 10 сотрудников и заблокирована для записи. Изменение отменено.`, 'error');
+                        return;
+                    }
+                }
+            }
+
+            // Commit saved selections
+            emp.shiftMap = { ...currentEditingShiftMap };
+            syncEmployeeCalculations(emp);
+            persistData();
+
+            // Refresh UI views with fresh calculations
+            showEmployeeView();
+            initAdminView();
+            showModal('Сохранено', 'Ваш график смен успешно обновлен!', 'success');
+        }
+
+        function showAdminView() {
+            document.getElementById('view-login').classList.add('hidden');
+            document.getElementById('view-employee').classList.add('hidden');
+            document.getElementById('view-admin').classList.remove('hidden');
+
+            const header = document.getElementById('app-header');
+            header.classList.remove('hidden');
+
+            document.getElementById('user-role-display').innerText = 'Администратор (Админ трактора)';
+            document.getElementById('header-username').innerText = 'Админ трактора';
+            document.getElementById('header-avatar').innerHTML = getAvatarSVG(2);
+
+            initAdminView();
+            switchAdminSection('docs');
+        }
+
+        function changeEmployeeLevel(empId, delta) {
+            const emp = employees.find(e => String(e.id) === String(empId));
+            if (!emp) return;
+            if (emp.baseLevel === undefined || emp.baseLevel === null) {
+                emp.baseLevel = (emp.level !== undefined && emp.level !== null) ? Number(emp.level) : 0;
+            }
+            emp.baseLevel = Math.max(0, Number(emp.baseLevel) + delta);
+            syncEmployeeCalculations(emp);
+            persistData();
+            initAdminView();
+        }
+
+
+        // ==================== СВОДКА ПО ДОКУМЕНТАМ И ДОПУСКАМ ====================
+
+        function normalizeItemStatus(val, expiryDate) {
+            const raw = (val || '').toLowerCase().trim();
+            const today = todayStr;
+
+            if (expiryDate) {
+                if (expiryDate < today) {
+                    return { code: 'просрочен', label: 'Просрочен', badgeClass: 'bg-rose-100 text-rose-800 border-rose-200', icon: 'fa-circle-exclamation text-rose-500' };
+                }
+                const expTime = new Date(expiryDate).getTime();
+                const nowTime = new Date(today).getTime();
+                const diffDays = Math.ceil((expTime - nowTime) / (1000 * 60 * 60 * 24));
+                if (diffDays <= 30 && diffDays >= 0) {
+                    return { code: 'истекает', label: 'Истекает', badgeClass: 'bg-amber-100 text-amber-800 border-amber-200', icon: 'fa-clock text-amber-500', daysLeft: diffDays };
+                }
+            }
+
+            if (raw === 'просрочен') {
+                return { code: 'просрочен', label: 'Просрочен', badgeClass: 'bg-rose-100 text-rose-800 border-rose-200', icon: 'fa-circle-exclamation text-rose-500' };
+            }
+            if (raw === 'истекает') {
+                return { code: 'истекает', label: 'Истекает', badgeClass: 'bg-amber-100 text-amber-800 border-amber-200', icon: 'fa-clock text-amber-500', daysLeft: diffDays };
+            }
+            if (raw === 'не проверен') {
+                return { code: 'не проверен', label: 'Не проверен', badgeClass: 'bg-sky-100 text-sky-800 border-sky-200', icon: 'fa-circle-question text-sky-500' };
+            }
+            if (raw === 'да' || raw === 'действует') {
+                return { code: 'действует', label: 'Действует', badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: 'fa-circle-check text-emerald-500' };
+            }
+            // 'нет' or 'отсутствует' or default
+            return { code: 'отсутствует', label: 'Отсутствует', badgeClass: 'bg-slate-100 text-slate-700 border-slate-200', icon: 'fa-circle-xmark text-slate-400' };
+        }
+
+        function getEmployeeStatusAnalysis(emp) {
+            const si = emp.statusInfo || {};
+            const gphStatus = normalizeItemStatus(si.gph);
+            const docsStatus = normalizeItemStatus(si.docs, si.docsExpiry);
+            const photoStatus = normalizeItemStatus(si.photo);
+            const tbStatus = normalizeItemStatus(si.tb, si.tbExpiry);
+            const scriptsStatus = normalizeItemStatus(si.scripts);
+
+            // Определение общего статуса документов
+            const docItems = [gphStatus, docsStatus, photoStatus];
+            let docsOverall = 'действует';
+            if (docItems.some(x => x.code === 'просрочен')) {
+                docsOverall = 'просрочен';
+            } else if (docItems.some(x => x.code === 'истекает')) {
+                docsOverall = 'истекает';
+            } else if (docItems.every(x => x.code === 'действует')) {
+                docsOverall = 'действует';
+            } else if (docItems.some(x => x.code === 'не проверен')) {
+                docsOverall = 'не проверен';
+            } else {
+                docsOverall = 'отсутствует';
+            }
+
+            // Определение общего статуса допусков
+            const permItems = [tbStatus, scriptsStatus];
+            let permOverall = 'действует';
+            if (permItems.some(x => x.code === 'просрочен')) {
+                permOverall = 'просрочен';
+            } else if (permItems.some(x => x.code === 'истекает')) {
+                permOverall = 'истекает';
+            } else if (permItems.every(x => x.code === 'действует')) {
+                permOverall = 'действует';
+            } else if (permItems.some(x => x.code === 'не проверен')) {
+                permOverall = 'не проверен';
+            } else {
+                permOverall = 'отсутствует';
+            }
+
+            // Сбор проблем, отсутствующих и истекающих
+            const problems = [];
+            const missing = [];
+            const expired = [];
+            const expiring = [];
+            const unverified = [];
+
+            if (gphStatus.code === 'просрочен') expired.push('ГПХ');
+            else if (gphStatus.code === 'истекает') expiring.push('ГПХ');
+            else if (gphStatus.code === 'отсутствует') missing.push('ГПХ');
+            else if (gphStatus.code === 'не проверен') unverified.push('ГПХ');
+
+            if (docsStatus.code === 'просрочен') expired.push(si.docsExpiry ? `Документы (до ${si.docsExpiry})` : 'Документы');
+            else if (docsStatus.code === 'истекает') expiring.push(si.docsExpiry ? `Документы (до ${si.docsExpiry})` : 'Документы');
+            else if (docsStatus.code === 'отсутствует') missing.push('Документы');
+            else if (docsStatus.code === 'не проверен') unverified.push('Документы');
+
+            if (photoStatus.code === 'отсутствует') missing.push('Фото в диске');
+            else if (photoStatus.code === 'не проверен') unverified.push('Фото в диске');
+
+            if (tbStatus.code === 'просрочен') expired.push(si.tbExpiry ? `ТБ (до ${si.tbExpiry})` : 'ТБ');
+            else if (tbStatus.code === 'истекает') expiring.push(si.tbExpiry ? `ТБ (до ${si.tbExpiry})` : 'ТБ');
+            else if (tbStatus.code === 'отсутствует') missing.push('ТБ');
+            else if (tbStatus.code === 'не проверен') unverified.push('ТБ');
+
+            if (scriptsStatus.code === 'отсутствует') missing.push('Скрипты');
+            else if (scriptsStatus.code === 'не проверен') unverified.push('Скрипты');
+
+            const hasProblem = (expired.length > 0 || expiring.length > 0 || missing.length > 0 || unverified.length > 0);
+
+            return {
+                docsOverall,
+                permOverall,
+                gphStatus,
+                docsStatus,
+                photoStatus,
+                tbStatus,
+                scriptsStatus,
+                docsExpiry: si.docsExpiry || null,
+                tbExpiry: si.tbExpiry || null,
+                hasProblem,
+                missing,
+                expired,
+                expiring,
+                unverified
+            };
+        }
+
+        function getStatusBadgeMarkup(statusCode) {
+            switch(statusCode) {
+                case 'действует':
+                    return `<span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200/80"><i class="fa-solid fa-circle-check text-emerald-600 text-[10px]"></i><span>Действует</span></span>`;
+                case 'истекает':
+                    return `<span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200/80"><i class="fa-solid fa-clock text-amber-600 text-[10px]"></i><span>Истекает</span></span>`;
+                case 'просрочен':
+                    return `<span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200/80"><i class="fa-solid fa-circle-exclamation text-rose-600 text-[10px]"></i><span>Просрочен</span></span>`;
+                case 'не проверен':
+                    return `<span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-sky-100 text-sky-800 border border-sky-200/80"><i class="fa-solid fa-circle-question text-sky-600 text-[10px]"></i><span>Не проверен</span></span>`;
+                case 'отсутствует':
+                default:
+                    return `<span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200"><i class="fa-solid fa-circle-xmark text-slate-400 text-[10px]"></i><span>Отсутствует</span></span>`;
+            }
+        }
+
+        function setSummaryFilter(status) {
+            const filterEl = document.getElementById('summary-status-filter');
+            if (filterEl) {
+                filterEl.value = status;
+                renderStatusSummaryTable();
+            }
+        }
+
+        function renderStatusSummaryTable() {
+            const tbody = document.getElementById('admin-summary-table-body');
+            const searchInput = document.getElementById('summary-search-input');
+            const filterSelect = document.getElementById('summary-status-filter');
+
+            if (!tbody) return;
+
+            const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+            const statusFilter = filterSelect ? filterSelect.value : 'all';
+
+            // Подсчет счетчиков по всем сотрудникам
+            let totalCount = employees.length;
+            let validCount = 0;
+            let expiringCount = 0;
+            let expiredCount = 0;
+            let missingCount = 0;
+            let problemsCount = 0;
+
+            const analyzedList = employees.map(emp => {
+                const analysis = getEmployeeStatusAnalysis(emp);
+                return { emp, analysis };
+            });
+
+            analyzedList.forEach(({ analysis }) => {
+                if (analysis.hasProblem) problemsCount++;
+                if (!analysis.hasProblem) validCount++;
+                if (analysis.expired.length > 0 || analysis.docsOverall === 'просрочен' || analysis.permOverall === 'просрочен') expiredCount++;
+                if (analysis.expiring.length > 0 || analysis.docsOverall === 'истекает' || analysis.permOverall === 'истекает') expiringCount++;
+                if (analysis.missing.length > 0 || analysis.docsOverall === 'отсутствует' || analysis.permOverall === 'отсутствует') missingCount++;
+            });
+
+            // Обновляем KPI бейджи
+            const totalEl = document.getElementById('kpi-total-count');
+            if (totalEl) totalEl.innerText = totalCount;
+            const validEl = document.getElementById('kpi-valid-count');
+            if (validEl) validEl.innerText = validCount;
+            const expiringEl = document.getElementById('kpi-expiring-count');
+            if (expiringEl) expiringEl.innerText = expiringCount;
+            const expiredEl = document.getElementById('kpi-expired-count');
+            if (expiredEl) expiredEl.innerText = expiredCount;
+            const missingEl = document.getElementById('kpi-missing-count');
+            if (missingEl) missingEl.innerText = missingCount;
+            const problemsEl = document.getElementById('kpi-problems-count');
+            if (problemsEl) problemsEl.innerText = problemsCount;
+
+            // Фильтрация для таблицы
+            const filtered = analyzedList.filter(({ emp, analysis }) => {
+                const matchName = emp.name.toLowerCase().includes(query);
+                if (!matchName) return false;
+
+                if (statusFilter === 'all') return true;
+                if (statusFilter === 'problems') return analysis.hasProblem;
+                if (statusFilter === 'действует') return !analysis.hasProblem;
+                if (statusFilter === 'истекает') return (analysis.docsOverall === 'истекает' || analysis.permOverall === 'истекает' || analysis.expiring.length > 0);
+                if (statusFilter === 'просрочен') return (analysis.docsOverall === 'просрочен' || analysis.permOverall === 'просрочен' || analysis.expired.length > 0);
+                if (statusFilter === 'отсутствует') return (analysis.docsOverall === 'отсутствует' || analysis.permOverall === 'отсутствует' || analysis.missing.length > 0);
+                if (statusFilter === 'не проверен') return (analysis.docsOverall === 'не проверен' || analysis.permOverall === 'не проверен' || analysis.unverified.length > 0);
+
+                return true;
+            });
+
+            tbody.innerHTML = '';
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">Сотрудники по выбранным критериям не найдены</td></tr>`;
+                return;
+            }
+
+            filtered.forEach(({ emp, analysis }, index) => {
+                const tr = document.createElement('tr');
+                tr.className = analysis.hasProblem ? 'hover:bg-amber-50/30 transition' : 'hover:bg-slate-50 transition';
+
+                // Форматирование сроков действия
+                const docsDateStr = analysis.docsExpiry ? `<div class="flex items-center space-x-1.5"><i class="fa-regular fa-calendar text-slate-400 text-[10px]"></i><span>Документы: <strong>${analysis.docsExpiry}</strong></span></div>` : '<div class="text-slate-400">Документы: бессрочно</div>';
+                const tbDateStr = analysis.tbExpiry ? `<div class="flex items-center space-x-1.5 mt-0.5"><i class="fa-solid fa-shield text-slate-400 text-[10px]"></i><span>ТБ: <strong>${analysis.tbExpiry}</strong></span></div>` : '<div class="text-slate-400 mt-0.5">ТБ: бессрочно</div>';
+
+                // Детализация документов
+                const docsPills = `
+                    <div class="flex flex-wrap gap-1 mt-1 text-[10px]">
+                        <span class="px-1.5 py-0.5 rounded ${analysis.gphStatus.code === 'действует' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}">ГПХ: ${analysis.gphStatus.label}</span>
+                        <span class="px-1.5 py-0.5 rounded ${analysis.docsStatus.code === 'действует' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}">Документы: ${analysis.docsStatus.label}</span>
+                        <span class="px-1.5 py-0.5 rounded ${analysis.photoStatus.code === 'действует' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}">Фото: ${analysis.photoStatus.label}</span>
+                    </div>
+                `;
+
+                // Детализация допусков
+                const permsPills = `
+                    <div class="flex flex-wrap gap-1 mt-1 text-[10px]">
+                        <span class="px-1.5 py-0.5 rounded ${analysis.tbStatus.code === 'действует' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}">ТБ: ${analysis.tbStatus.label}</span>
+                        <span class="px-1.5 py-0.5 rounded ${analysis.scriptsStatus.code === 'действует' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}">Скрипты: ${analysis.scriptsStatus.label}</span>
+                    </div>
+                `;
+
+                // Формирование предупреждений
+                let warningHtml = '';
+                if (!analysis.hasProblem) {
+                    warningHtml = `<span class="inline-flex items-center space-x-1.5 text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2.5 py-1 rounded-xl text-xs font-semibold"><i class="fa-solid fa-circle-check text-emerald-500"></i><span>Все документы и допуски в порядке</span></span>`;
+                } else {
+                    const alertParts = [];
+                    if (analysis.expired.length > 0) {
+                        alertParts.push(`<span class="text-rose-700 font-bold">Просрочено: ${analysis.expired.join(', ')}</span>`);
+                    }
+                    if (analysis.expiring.length > 0) {
+                        alertParts.push(`<span class="text-amber-700 font-bold">Истекает: ${analysis.expiring.join(', ')}</span>`);
+                    }
+                    if (analysis.missing.length > 0) {
+                        alertParts.push(`<span class="text-slate-700">Отсутствуют: ${analysis.missing.join(', ')}</span>`);
+                    }
+                    if (analysis.unverified.length > 0) {
+                        alertParts.push(`<span class="text-sky-700">Не проверено: ${analysis.unverified.join(', ')}</span>`);
+                    }
+                    warningHtml = `
+                        <div class="p-2 rounded-xl bg-amber-50/70 border border-amber-200/60 text-[11px] space-y-1">
+                            ${alertParts.join('<br>')}
+                        </div>
+                    `;
+                }
+
+                tr.innerHTML = `
+                    <td class="p-3 text-center font-bold text-slate-400">${index + 1}</td>
+                    <td class="p-3">
+                        <div class="flex items-center space-x-2.5 cursor-pointer group" onclick="openEmployeeStatusModal('${emp.id}')" title="Нажмите для редактирования статуса">
+                            <div class="w-8 h-8 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0 bg-slate-50">
+                                ${getAvatarSVG(emp.avatarIdx)}
+                            </div>
+                            <div class="min-w-0">
+                                <div class="font-bold text-slate-900 group-hover:text-indigo-600 transition underline decoration-dotted underline-offset-4 truncate">${emp.name}</div>
+                                <div class="text-[10px] text-slate-400">${emp.role || 'Сотрудник'}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="p-3">
+                        ${getStatusBadgeMarkup(analysis.docsOverall)}
+                        ${docsPills}
+                    </td>
+                    <td class="p-3">
+                        ${getStatusBadgeMarkup(analysis.permOverall)}
+                        ${permsPills}
+                    </td>
+                    <td class="p-3 font-mono text-[11px] text-slate-600">
+                        ${docsDateStr}
+                        ${tbDateStr}
+                    </td>
+                    <td class="p-3">
+                        ${warningHtml}
+                    </td>
+                    <td class="p-3 text-right">
+                        <button type="button" onclick="openEmployeeStatusModal('${emp.id}')" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl font-semibold text-xs transition inline-flex items-center space-x-1.5 shadow-sm" title="Изменить статус и сроки">
+                            <i class="fa-solid fa-pen-to-square text-[10px]"></i>
+                            <span>Изменить</span>
+                        </button>
+                    </td>
+                `;
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        function openEmployeeStatusModal(empId) {
+            if (!canManageDocuments()) {
+                showModal('Ограничение доступа', 'У вас нет прав для изменения статуса документов сотрудников.', 'error');
+                return;
+            }
+            const emp = employees.find(e => String(e.id) === String(empId));
+            if (!emp) return;
+
+            document.getElementById('status-modal-emp-id').value = emp.id;
+            document.getElementById('status-modal-name').innerText = emp.name;
+            document.getElementById('status-modal-avatar').innerHTML = getAvatarSVG(emp.avatarIdx);
+
+            if (!emp.statusInfo) {
+                emp.statusInfo = { gph: 'нет', docs: 'нет', photo: 'нет', tb: 'нет', scripts: 'нет', docsExpiry: '', tbExpiry: '' };
+            }
+
+            document.getElementById('status-gph').value = emp.statusInfo.gph || 'нет';
+            document.getElementById('status-docs').value = emp.statusInfo.docs || 'нет';
+            document.getElementById('status-photo').value = emp.statusInfo.photo || 'нет';
+            document.getElementById('status-tb').value = emp.statusInfo.tb || 'нет';
+            document.getElementById('status-scripts').value = emp.statusInfo.scripts || 'нет';
+            document.getElementById('status-docs-expiry').value = emp.statusInfo.docsExpiry || '';
+            document.getElementById('status-tb-expiry').value = emp.statusInfo.tbExpiry || '';
+
+            document.getElementById('employee-status-modal').classList.remove('hidden');
+        }
+
+        function closeStatusModal() {
+            document.getElementById('employee-status-modal').classList.add('hidden');
+        }
+
+        // Strictly read-only view for regular employees (Operator, Cashier, etc.)
+        function renderPersonalDocumentsReadOnly(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            if (!currentUser || currentUser.role !== 'employee' || !currentUser.id) {
+                container.innerHTML = `<div class="p-6 bg-white rounded-3xl border border-slate-200 text-center text-slate-400">Данные авторизованного сотрудника не найдены</div>`;
+                return;
+            }
+
+            // Strictly filter by the currently authenticated employee's unique ID
+            const currentUserId = String(currentUser.id);
+            const emp = employees.find(e => String(e.id) === currentUserId);
+            if (!emp) {
+                container.innerHTML = `<div class="p-6 bg-white rounded-3xl border border-slate-200 text-center text-slate-400">Данные сотрудника не найдены</div>`;
+                return;
+            }
+
+            const analysis = getEmployeeStatusAnalysis(emp);
+            const docsDateStr = analysis.docsExpiry ? `<strong>${analysis.docsExpiry}</strong>` : 'бессрочно';
+            const tbDateStr = analysis.tbExpiry ? `<strong>${analysis.tbExpiry}</strong>` : 'бессрочно';
+
+            let alertBanner = '';
+            if (!analysis.hasProblem) {
+                alertBanner = `
+                    <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200/80 flex items-center space-x-3 text-emerald-800">
+                        <i class="fa-solid fa-circle-check text-emerald-500 text-lg"></i>
+                        <div>
+                            <h4 class="font-bold text-sm">Все документы и допуски в порядке</h4>
+                            <p class="text-xs text-emerald-700/90 mt-0.5">У вас нет просроченных или отсутствующих документов.</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                const items = [];
+                if (analysis.expired.length > 0) items.push(`<li class="text-rose-700 font-semibold">Просрочено: ${analysis.expired.join(', ')}</li>`);
+                if (analysis.expiring.length > 0) items.push(`<li class="text-amber-700 font-semibold">Истекает в ближайшее время: ${analysis.expiring.join(', ')}</li>`);
+                if (analysis.missing.length > 0) items.push(`<li class="text-slate-700">Отсутствует в базе: ${analysis.missing.join(', ')}</li>`);
+                if (analysis.unverified.length > 0) items.push(`<li class="text-sky-700">На проверке: ${analysis.unverified.join(', ')}</li>`);
+
+                alertBanner = `
+                    <div class="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/80 space-y-2">
+                        <div class="flex items-center space-x-2.5 text-amber-900 font-bold text-sm">
+                            <i class="fa-solid fa-triangle-exclamation text-amber-500"></i>
+                            <span>Требуется внимание по документам или допускам:</span>
+                        </div>
+                        <ul class="text-xs list-disc list-inside space-y-1 pl-1">
+                            ${items.join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = `
+                <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 sm:p-8 space-y-6">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-base shadow-inner">
+                                <i class="fa-solid fa-clipboard-check"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-slate-900">Статус документов и допусков сотрудника</h3>
+                                <p class="text-xs text-slate-500">Персональные сведения о ваших допусках и документах (только просмотр)</p>
+                            </div>
+                        </div>
+                        <span class="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 self-start sm:self-center">
+                            <i class="fa-solid fa-lock text-[10px]"></i>
+                            <span>Режим чтения</span>
+                        </span>
+                    </div>
+
+                    ${alertBanner}
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <!-- Documents Block -->
+                        <div class="p-5 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-4">
+                            <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fa-regular fa-file-lines text-indigo-600"></i>
+                                    <h4 class="font-bold text-sm text-slate-900">Документы</h4>
+                                </div>
+                                <div>${getStatusBadgeMarkup(analysis.docsOverall)}</div>
+                            </div>
+
+                            <div class="space-y-2.5 text-xs">
+                                <div class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                                    <span class="text-slate-600 font-medium">ГПХ (Договор)</span>
+                                    <span>${getStatusBadgeMarkup(analysis.gphStatus.code)}</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                                    <span class="text-slate-600 font-medium">Скан в ДК</span>
+                                    <span>${getStatusBadgeMarkup(analysis.docsStatus.code)}</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                                    <span class="text-slate-600 font-medium">Паспорт в ДК</span>
+                                    <span>${getStatusBadgeMarkup(analysis.photoStatus.code)}</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-100 shadow-2xs text-slate-700">
+                                    <span class="text-slate-600 font-medium">Срок действия документов</span>
+                                    <span class="font-mono">${docsDateStr}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Clearances and Training Block -->
+                        <div class="p-5 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-4">
+                            <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fa-solid fa-graduation-cap text-indigo-600"></i>
+                                    <h4 class="font-bold text-sm text-slate-900">Допуски и обучение</h4>
+                                </div>
+                                <div>${getStatusBadgeMarkup(analysis.permOverall)}</div>
+                            </div>
+
+                            <div class="space-y-2.5 text-xs">
+                                <div class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                                    <span class="text-slate-600 font-medium">ТБ (Техника безопасности)</span>
+                                    <span>${getStatusBadgeMarkup(analysis.tbStatus.code)}</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                                    <span class="text-slate-600 font-medium">Скрипты</span>
+                                    <span>${getStatusBadgeMarkup(analysis.scriptsStatus.code)}</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-100 shadow-2xs text-slate-700">
+                                    <span class="text-slate-600 font-medium">Срок действия допуска ТБ</span>
+                                    <span class="font-mono">${tbDateStr}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function saveEmployeeStatusData() {
+            if (!canManageDocuments()) {
+                showModal('Ограничение доступа', 'У вас нет прав для сохранения статуса документов.', 'error');
+                return;
+            }
+            const empId = document.getElementById('status-modal-emp-id').value;
+            const emp = employees.find(e => String(e.id) === String(empId));
+            if (!emp) return;
+
+            emp.statusInfo = {
+                gph: document.getElementById('status-gph').value,
+                docs: document.getElementById('status-docs').value,
+                photo: document.getElementById('status-photo').value,
+                tb: document.getElementById('status-tb').value,
+                scripts: document.getElementById('status-scripts').value,
+                docsExpiry: document.getElementById('status-docs-expiry').value || '',
+                tbExpiry: document.getElementById('status-tb-expiry').value || ''
+            };
+
+            persistData();
+            closeStatusModal();
+            renderStatusSummaryTable();
+            showModal('Успешно', 'Статус документов сотрудника обновлен!', 'success');
+        }
+
+        function changeEmployeeRole(empId, newRole) {
+            const emp = employees.find(e => String(e.id) === String(empId));
+            if (!emp) return;
+            emp.role = normalizeEmployeeRole(newRole);
+            persistData();
+            initAdminView();
+            showModal('Роль обновлена', `Роль сотрудника ${emp.name} изменена на: ${emp.role}`, 'success');
+        }
+
+        function renderAdminEmployeesList() {
+            const tbody = document.getElementById('admin-employees-list');
+            const searchInput = document.getElementById('admin-search-input');
+            const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const filtered = employees.filter(emp => emp.name.toLowerCase().includes(query));
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">Сотрудники не найдены</td></tr>`;
+                return;
+            }
+
+            filtered.forEach((emp, index) => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50/80 transition';
+
+                syncEmployeeCalculations(emp);
+                const totalWorked = emp.totalWorkedShifts;
+                const currentLevel = emp.level !== undefined ? emp.level : 0;
+                const currentRole = normalizeEmployeeRole(emp.role);
+
+                const roleOptionsHtml = ALLOWED_ROLES.map(role => `
+                    <option value="${role}" ${role === currentRole ? 'selected' : ''}>${role}</option>
+                `).join('');
+
+                tr.innerHTML = `
+                    <td class="p-4 text-center font-bold text-slate-400">${index + 1}</td>
+                    <td class="p-4">
+                        <div class="flex items-center space-x-3 cursor-pointer group" onclick="openEmployeeStatusModal('${emp.id}')" title="Нажмите для просмотра допусков и документов">
+                            <div class="w-10 h-10 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0 bg-slate-50">
+                                ${getAvatarSVG(emp.avatarIdx)}
+                            </div>
+                            <span class="font-bold text-slate-900 group-hover:text-indigo-600 transition underline decoration-dotted underline-offset-4">${emp.name}</span>
+                        </div>
+                    </td>
+                    <td class="p-4 font-mono text-slate-600 bg-slate-50 rounded-lg"><span class="bg-slate-200/60 px-2 py-1 rounded text-xs">${emp.password}</span></td>
+                    <td class="p-4"><span class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-semibold">${currentRole}</span></td>
+                    <td class="p-4">
+                        <div class="flex items-center space-x-2">
+                            <span class="bg-purple-100 text-purple-800 border border-purple-200 px-3 py-1 rounded-xl text-xs font-extrabold flex items-center space-x-1 shadow-sm" title="Итоговый уровень: базовый (${emp.baseLevel || 0}) + за смены (${Math.floor(totalWorked / 10)})">
+                                <i class="fa-solid fa-star text-purple-600 text-[10px]"></i>
+                                <span>Уровень ${currentLevel}</span>
+                            </span>
+                            <div class="flex items-center space-x-1">
+                                <button onclick="changeEmployeeLevel('${emp.id}', -1)" class="w-6 h-6 bg-slate-100 hover:bg-rose-100 hover:text-rose-600 text-slate-600 font-bold rounded-lg transition flex items-center justify-center text-xs" title="Снизить базовый уровень">-</button>
+                                <button onclick="changeEmployeeLevel('${emp.id}', 1)" class="w-6 h-6 bg-slate-100 hover:bg-emerald-100 hover:text-emerald-600 text-slate-600 font-bold rounded-lg transition flex items-center justify-center text-xs" title="Повысить базовый уровень">+</button>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="p-4 text-slate-600">${emp.createdAt || '—'}</td>
+                    <td class="p-4 font-bold text-amber-600">${totalWorked} смен</td>
+                    <td class="p-4 text-right">
+                        <div class="inline-flex items-center space-x-2 justify-end">
+                            <div class="relative inline-block text-left">
+                                <select onchange="changeEmployeeRole('${emp.id}', this.value)" 
+                                    class="bg-white border border-slate-300 text-slate-800 text-xs font-semibold rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs hover:border-indigo-400 transition cursor-pointer"
+                                    title="Изменить роль сотрудника">
+                                    ${roleOptionsHtml}
+                                </select>
+                            </div>
+                            <button onclick="openEditEmployeeModal('${emp.id}')" class="p-2 bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 rounded-xl transition" title="Редактировать">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button onclick="deleteEmployee('${emp.id}')" class="p-2 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-xl transition" title="Удалить">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Helper: checks role assignments for a given shift date
+        function getShiftRoleCoverage(isoDate) {
+            let hasCashier = false;
+            let hasSeniorOperator = false;
+            let totalShifts = 0;
+
+            employees.forEach(emp => {
+                if (emp.shiftMap && emp.shiftMap[isoDate]) {
+                    totalShifts++;
+                    const role = normalizeEmployeeRole(emp.role);
+                    if (role === 'Кассир') {
+                        hasCashier = true;
+                    }
+                    if (role === 'Старший оператор') {
+                        hasSeniorOperator = true;
+                    }
+                }
+            });
+
+            return {
+                hasCashier,
+                hasSeniorOperator,
+                totalShifts
+            };
+        }
+
+        function renderSharedTable(headerId, bodyId, isAdminMode) {
+            const headerRow = document.getElementById(headerId);
+            const tbody = document.getElementById(bodyId);
+            const searchInput = document.getElementById('admin-search-input');
+            const query = (isAdminMode && searchInput) ? searchInput.value.trim().toLowerCase() : '';
+
+            if (!headerRow || !tbody) return;
+
+            headerRow.innerHTML = `<th class="p-3 font-semibold sticky left-0 top-0 bg-slate-50 z-30 min-w-[260px] border-b border-r border-slate-200">Сотрудник</th>`;
+            daysMeta.forEach(dm => {
+                const th = document.createElement('th');
+                th.className = `p-2 text-center font-semibold border-b border-slate-200 ${isAdminMode ? 'min-w-[105px]' : 'min-w-[70px]'}`;
+
+                let indicatorHeaderMarkup = '';
+                if (isAdminMode) {
+                    const coverage = getShiftRoleCoverage(dm.isoDate);
+                    const cashierBadge = coverage.hasCashier 
+                        ? `<span class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 text-[9px] font-bold" title="Кассир назначен">
+                            <i class="fa-solid fa-cash-register text-[8px]"></i>
+                            <span>К: Да</span>
+                           </span>`
+                        : `<span class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-300 text-[9px] font-extrabold animate-pulse shadow-2xs" title="Внимание: на эту смену не назначен кассир!">
+                            <i class="fa-solid fa-triangle-exclamation text-[9px] text-rose-600"></i>
+                            <span>Нет кассира</span>
+                           </span>`;
+
+                    const seniorBadge = coverage.hasSeniorOperator
+                        ? `<span class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200 text-[9px] font-bold" title="Старший оператор назначен">
+                            <i class="fa-solid fa-user-tie text-[8px]"></i>
+                            <span>СО: Да</span>
+                           </span>`
+                        : `<span class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 border border-slate-300 text-[9px] font-semibold" title="Старший оператор отсутствует">
+                            <i class="fa-solid fa-circle-xmark text-[8px] text-slate-500"></i>
+                            <span>СО: Нет</span>
+                           </span>`;
+
+                    indicatorHeaderMarkup = `
+                        <div class="flex flex-col items-center gap-1 mt-1.5 pt-1.5 border-t border-slate-200">
+                            ${cashierBadge}
+                            ${seniorBadge}
+                        </div>
+                    `;
+                }
+
+                th.innerHTML = `
+                    <div class="text-[10px] text-slate-400 uppercase">${dm.weekDayName}</div>
+                    <div class="text-xs text-slate-700 font-bold">${dm.dateStr}</div>
+                    ${indicatorHeaderMarkup}
+                `;
+                headerRow.appendChild(th);
+            });
+
+            tbody.innerHTML = '';
+
+            let filteredEmployees = employees.filter(emp => emp.name.toLowerCase().includes(query));
+
+            if (filteredEmployees.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="${daysMeta.length + 1}" class="p-6 text-center text-slate-400">Нет сотрудников для отображения</td></tr>`;
+                return;
+            }
+
+            // In admin mode (Employee Shift Editing section), sort employees strictly by role priority:
+            // 1. Админ, 2. Старший оператор, 3. Кассир, 4. Оператор
+            // Preserving original relative order within each role group (stable sort).
+            if (isAdminMode) {
+                const roleOrderMap = {
+                    'Админ': 1,
+                    'Старший оператор': 2,
+                    'Кассир': 3,
+                    'Оператор': 4
+                };
+
+                filteredEmployees = filteredEmployees
+                    .map((emp, originalIndex) => ({
+                        emp,
+                        originalIndex,
+                        priority: roleOrderMap[normalizeEmployeeRole(emp.role)] || 99
+                    }))
+                    .sort((a, b) => {
+                        if (a.priority !== b.priority) {
+                            return a.priority - b.priority;
+                        }
+                        return a.originalIndex - b.originalIndex;
+                    })
+                    .map(item => item.emp);
+            }
+
+            // Row 1: "Всего смен в день"
+            const summaryTr = document.createElement('tr');
+            summaryTr.className = 'bg-slate-100/90 font-bold border-b border-slate-200 text-slate-700 text-xs';
+            
+            const summaryTitleTd = document.createElement('td');
+            summaryTitleTd.className = 'p-3 sticky left-0 bg-slate-100 z-20 border-r border-b border-slate-200';
+            summaryTitleTd.innerHTML = `Всего смен в день:`;
+            summaryTr.appendChild(summaryTitleTd);
+
+            daysMeta.forEach(dm => {
+                const td = document.createElement('td');
+                td.className = 'p-2 text-center border-l border-slate-200';
+                
+                let count = 0;
+                filteredEmployees.forEach(emp => {
+                    if (emp.shiftMap && emp.shiftMap[dm.isoDate]) count++;
+                });
+
+                let badgeColor = 'bg-emerald-500 text-white';
+                if (count > 10) {
+                    badgeColor = 'bg-amber-100 text-amber-800 border border-amber-300';
+                } else if (count < 10) {
+                    badgeColor = 'bg-rose-100 text-rose-800 border border-rose-300';
+                }
+
+                td.innerHTML = `<span class="px-2 py-1 rounded-md text-xs font-extrabold ${badgeColor}">${count}</span>`;
+                summaryTr.appendChild(td);
+            });
+
+            tbody.appendChild(summaryTr);
+
+            // In admin mode, add dedicated role indicator summary rows directly below "Всего смен в день"
+            if (isAdminMode) {
+                // Row 2: Cashier Presence Indicator (visually hidden as requested)
+                const cashierTr = document.createElement('tr');
+                cashierTr.className = 'hidden bg-slate-50/90 border-b border-slate-200 text-[11px] font-semibold';
+                const cashierTitleTd = document.createElement('td');
+                cashierTitleTd.className = 'p-2.5 sticky left-0 bg-slate-100/95 z-10 flex items-center space-x-1.5 text-slate-700';
+                cashierTitleTd.innerHTML = `
+                    <i class="fa-solid fa-cash-register text-indigo-600 text-xs"></i>
+                    <span>Наличие кассира:</span>
+                `;
+                cashierTr.appendChild(cashierTitleTd);
+
+                daysMeta.forEach(dm => {
+                    const td = document.createElement('td');
+                    td.className = 'p-2 text-center border-l border-slate-200';
+                    const coverage = getShiftRoleCoverage(dm.isoDate);
+                    
+                    if (coverage.hasCashier) {
+                        td.innerHTML = `
+                            <span class="inline-flex items-center space-x-1 px-2 py-1 rounded-lg text-emerald-800 bg-emerald-100/90 border border-emerald-300 font-bold text-[10px]" title="Кассир присутствует на смене">
+                                <i class="fa-solid fa-check text-emerald-600 text-[10px]"></i>
+                                <span>Есть</span>
+                            </span>
+                        `;
+                    } else {
+                        td.innerHTML = `
+                            <span class="inline-flex items-center space-x-1 px-2 py-1 rounded-lg text-rose-800 bg-rose-100 border border-rose-300 font-extrabold text-[10px] animate-pulse" title="Внимание! На эту смену не назначен кассир">
+                                <i class="fa-solid fa-triangle-exclamation text-rose-600 text-[10px]"></i>
+                                <span>Нет</span>
+                            </span>
+                        `;
+                    }
+                    cashierTr.appendChild(td);
+                });
+                tbody.appendChild(cashierTr);
+
+                // Row 3: Senior Operator Presence Indicator (visually hidden as requested)
+                const seniorTr = document.createElement('tr');
+                seniorTr.className = 'hidden bg-slate-50/90 border-b-2 border-slate-300 text-[11px] font-semibold';
+                const seniorTitleTd = document.createElement('td');
+                seniorTitleTd.className = 'p-2.5 sticky left-0 bg-slate-100/95 z-10 flex items-center space-x-1.5 text-slate-700';
+                seniorTitleTd.innerHTML = `
+                    <i class="fa-solid fa-user-tie text-purple-600 text-xs"></i>
+                    <span>Наличие ст. оператора:</span>
+                `;
+                seniorTr.appendChild(seniorTitleTd);
+
+                daysMeta.forEach(dm => {
+                    const td = document.createElement('td');
+                    td.className = 'p-2 text-center border-l border-slate-200';
+                    const coverage = getShiftRoleCoverage(dm.isoDate);
+                    
+                    if (coverage.hasSeniorOperator) {
+                        td.innerHTML = `
+                            <span class="inline-flex items-center space-x-1 px-2 py-1 rounded-lg text-purple-800 bg-purple-100/90 border border-purple-300 font-bold text-[10px]" title="Старший оператор присутствует на смене">
+                                <i class="fa-solid fa-check text-purple-600 text-[10px]"></i>
+                                <span>Есть</span>
+                            </span>
+                        `;
+                    } else {
+                        td.innerHTML = `
+                            <span class="inline-flex items-center space-x-1 px-2 py-1 rounded-lg text-slate-600 bg-slate-200/80 border border-slate-300 text-[10px] font-semibold" title="Старший оператор отсутствует на смене">
+                                <i class="fa-solid fa-xmark text-slate-500 text-[10px]"></i>
+                                <span>Нет</span>
+                            </span>
+                        `;
+                    }
+                    seniorTr.appendChild(td);
+                });
+                tbody.appendChild(seniorTr);
+            }
+
+            // In employee mode, place the authenticated employee at the very top of the list
+            if (!isAdminMode && currentUser && currentUser.role === 'employee') {
+                const currentEmpIndex = filteredEmployees.findIndex(emp => String(emp.id) === String(currentUser.id));
+                if (currentEmpIndex > -1) {
+                    const [currentEmp] = filteredEmployees.splice(currentEmpIndex, 1);
+                    filteredEmployees.unshift(currentEmp);
+                }
+            }
+
+            filteredEmployees.forEach((emp, index) => {
+                const isCurrentAuthUser = !isAdminMode && !!(currentUser && currentUser.role === 'employee' && String(emp.id) === String(currentUser.id));
+                const tr = document.createElement('tr');
+                tr.className = isCurrentAuthUser 
+                    ? 'bg-indigo-50/40 hover:bg-indigo-50/70 transition' 
+                    : 'hover:bg-slate-50/50 transition';
+
+                syncEmployeeCalculations(emp);
+                const totalWorked = emp.totalWorkedShifts;
+
+                const nameTd = document.createElement('td');
+                const stickyBg = isCurrentAuthUser ? 'bg-indigo-50' : 'bg-white';
+                const nameStyle = isCurrentAuthUser ? 'font-bold text-indigo-950' : 'font-medium text-slate-900';
+                const youBadge = isCurrentAuthUser 
+                    ? `<span class="bg-indigo-600 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full uppercase tracking-wider flex-shrink-0">Вы</span>` 
+                    : '';
+
+                // Compact role badge displayed next to the employee's full name in Admin Shift Editing section
+                const roleBadgeMarkup = isAdminMode 
+                    ? getRoleBadgeMarkup(emp.role) 
+                    : '';
+
+                // Matching the exact visual style from renderUpcomingScheduleSection ("Расписание")
+                const effectiveLvl = emp.level !== undefined && emp.level !== null ? emp.level : 0;
+                const levelBadgeMarkup = !isAdminMode
+                    ? `<span class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200/80 text-[10px] font-bold flex-shrink-0" title="Уровень сотрудника: ${effectiveLvl}"><i class="fa-solid fa-star text-[8px] text-amber-400"></i><span>Ур. ${effectiveLvl}</span></span>`
+                    : '';
+
+                const badgeRightMarkup = isAdminMode
+                    ? `<span class="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm ml-1 flex-shrink-0" title="Отработано смен за все время (подтверждено)">${totalWorked} смен</span>`
+                    : '';
+
+                // Sticky cell: remains a native table-cell, sticky with left-0 and z-20, containing an inner flex container
+                nameTd.className = `p-3 sticky left-0 z-20 ${stickyBg} ${nameStyle} border-r border-b ${isCurrentAuthUser ? 'border-indigo-200' : 'border-slate-200'} shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)]`;
+                nameTd.innerHTML = `
+                    <div class="flex items-center justify-between w-full">
+                        <div class="flex items-center space-x-2 min-w-0 mr-2 flex-wrap sm:flex-nowrap">
+                            <span class="text-xs font-bold ${isCurrentAuthUser ? 'text-indigo-400' : 'text-slate-400'}">#${index + 1}</span>
+                            <div class="w-7 h-7 rounded-lg overflow-hidden border ${isCurrentAuthUser ? 'border-indigo-300' : 'border-slate-200'} flex-shrink-0 bg-slate-50">
+                                ${getAvatarSVG(emp.avatarIdx)}
+                            </div>
+                            <span class="truncate ${nameStyle}" title="${emp.name}">${emp.name}</span>
+                            ${roleBadgeMarkup}
+                            ${levelBadgeMarkup}
+                            ${youBadge}
+                        </div>
+                        ${badgeRightMarkup}
+                    </div>
+                `;
+                tr.appendChild(nameTd);
+
+                daysMeta.forEach(dm => {
+                    const td = document.createElement('td');
+                    td.className = `p-2 text-center border-l ${isCurrentAuthUser ? 'border-indigo-100' : 'border-slate-100'}`;
+                    const isShift = !!(emp.shiftMap && emp.shiftMap[dm.isoDate]);
+
+                    if (isAdminMode) {
+                        td.innerHTML = `
+                            <button onclick="adminToggleShift('${emp.id}', '${dm.isoDate}')" class="w-8 h-8 rounded-lg flex items-center justify-center transition mx-auto ${isShift ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-300 hover:bg-slate-200'}">
+                                ${isShift ? '<i class="fa-solid fa-check text-xs"></i>' : ''}
+                            </button>
+                        `;
+                    } else {
+                        const shiftActiveClasses = isCurrentAuthUser 
+                            ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-300' 
+                            : 'bg-indigo-600 text-white';
+                        const shiftInactiveClasses = isCurrentAuthUser 
+                            ? 'bg-indigo-100/40 text-slate-300' 
+                            : 'bg-slate-50 text-slate-200';
+
+                        td.innerHTML = `
+                            <div class="w-8 h-8 rounded-lg flex items-center justify-center mx-auto ${isShift ? shiftActiveClasses : shiftInactiveClasses}">
+                                ${isShift ? '<i class="fa-solid fa-check text-xs"></i>' : ''}
+                            </div>
+                        `;
+                    }
+                    tr.appendChild(td);
+                });
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        function adminToggleShift(empId, isoDate) {
+            const emp = employees.find(e => String(e.id) === String(empId));
+            if (!emp) return;
+
+            if (!emp.shiftMap) emp.shiftMap = {};
+            emp.shiftMap[isoDate] = !emp.shiftMap[isoDate];
+            syncEmployeeCalculations(emp);
+
+            persistData();
+            initAdminView();
+        }
+
+        function toggleShiftsLock() {
+            isShiftsLocked = !isShiftsLocked;
+            persistData();
+            initAdminView();
+            showModal('Статус смен изменен', isShiftsLocked ? 'Смены заблокированы. Сотрудники больше не могут их редактировать.' : 'Смены разблокированы. Сотрудники могут изменять графики.', 'success');
+        }
+
+        function addWeek() {
+            weeksCount++;
+            generateDaysMeta();
+            persistData();
+            initAdminView();
+            showModal('Неделя добавлена', `График расширен до ${weeksCount} недель.`, 'success');
+        }
+
+        function removeWeek() {
+            if (weeksCount <= 1) {
+                showModal('Ошибка', 'Нельзя удалить последнюю неделю.', 'error');
+                return;
+            }
+
+            const oldDaysToRemove = daysMeta.slice(0, 7);
+            weeksCount--;
+            generateDaysMeta();
+
+            employees.forEach(emp => {
+                if (emp.shiftMap) {
+                    oldDaysToRemove.forEach(d => {
+                        if (emp.shiftMap[d.isoDate] && d.isoDate < todayStr) {
+                            emp.accumulatedWorkedShifts = (emp.accumulatedWorkedShifts || 0) + 1;
+                        }
+                        delete emp.shiftMap[d.isoDate];
+                    });
+                }
+                syncEmployeeCalculations(emp);
+            });
+
+            persistData();
+            initAdminView();
+            showModal('Неделя удалена', `Самая старая неделя удалена. Осталось ${weeksCount} недель.`, 'info');
+        }
+
+        function applyNewStartDate() {
+            const startDateInput = document.getElementById('admin-start-date');
+            if (!startDateInput || !startDateInput.value) return;
+
+            const newDateStr = startDateInput.value;
+            const [year, month, day] = newDateStr.split('-').map(Number);
+            const selectedDate = new Date(year, month - 1, day);
+            
+            const newStartISO = formatDateKey(selectedDate);
+            
+            startDateISO = newStartISO;
+            generateDaysMeta();
+
+            const validIsoDates = new Set(daysMeta.map(d => d.isoDate));
+
+            employees.forEach(emp => {
+                if (emp.shiftMap) {
+                    const cleanedMap = {};
+                    Object.keys(emp.shiftMap).forEach(isoDate => {
+                        if (!validIsoDates.has(isoDate)) {
+                            if (emp.shiftMap[isoDate] && isoDate < todayStr) {
+                                emp.accumulatedWorkedShifts = (emp.accumulatedWorkedShifts || 0) + 1;
+                            }
+                        } else {
+                            if (emp.shiftMap[isoDate]) {
+                                cleanedMap[isoDate] = true;
+                            }
+                        }
+                    });
+                    emp.shiftMap = cleanedMap;
+                }
+                syncEmployeeCalculations(emp);
+            });
+
+            persistData();
+            initAdminView();
+
+            showModal('Дата старта установлена', `Все дни до ${selectedDate.getDate()} ${monthsNames[selectedDate.getMonth()]} успешно удалены из графика, а отработанные смены сохранены в истории.`, 'success');
+        }
+
+        function initAdminView() {
+            mountDocumentsSummaryBlock('admin-section-docs');
+            renderStatusSummaryTable();
+            renderAdminEmployeesList();
+            renderSharedTable('admin-table-header', 'admin-table-body', true);
+
+            const totalCountEl = document.getElementById('admin-total-emp-count');
+            if (totalCountEl) totalCountEl.innerText = employees.length;
+
+            const weeksLabel = document.getElementById('weeks-count-label');
+            if (weeksLabel) weeksLabel.innerText = `Недель: ${weeksCount}`;
+
+            const startDateInput = document.getElementById('admin-start-date');
+            if (startDateInput) startDateInput.value = startDateISO;
+
+            // Initialize Excel export date pickers with the current schedule period
+            const exportFromInput = document.getElementById('excel-export-from');
+            const exportToInput = document.getElementById('excel-export-to');
+            if (exportFromInput && !exportFromInput.value && daysMeta.length > 0) {
+                exportFromInput.value = daysMeta[0].isoDate;
+            }
+            if (exportToInput && !exportToInput.value && daysMeta.length > 0) {
+                exportToInput.value = daysMeta[daysMeta.length - 1].isoDate;
+            }
+
+            const lockBtn = document.getElementById('admin-lock-toggle-btn');
+            const lockBtnText = document.getElementById('admin-lock-btn-text');
+            const lockStatusBadge = document.getElementById('admin-lock-status-badge');
+
+            if (isShiftsLocked) {
+                if (lockBtn) lockBtn.className = lockBtn.className.replace('bg-amber-500 hover:bg-amber-600', 'bg-emerald-600 hover:bg-emerald-700');
+                if (lockBtnText) lockBtnText.innerText = 'Разблокировать смены';
+                if (lockStatusBadge) {
+                    lockStatusBadge.className = 'bg-rose-500/20 text-rose-300 border border-rose-500/40 text-xs font-bold px-3 py-1 rounded-full flex items-center space-x-1.5';
+                    lockStatusBadge.innerHTML = '<i class="fa-solid fa-lock text-rose-400"></i><span>Смены заблокированы</span>';
+                }
+            } else {
+                if (lockBtn) lockBtn.className = lockBtn.className.replace('bg-emerald-600 hover:bg-emerald-700', 'bg-amber-500 hover:bg-amber-600');
+                if (lockBtnText) lockBtnText.innerText = 'Заблокировать смены';
+                if (lockStatusBadge) {
+                    lockStatusBadge.className = 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-bold px-3 py-1 rounded-full flex items-center space-x-1.5';
+                    lockStatusBadge.innerHTML = '<i class="fa-solid fa-lock-open text-emerald-400"></i><span>Смены открыты</span>';
+                }
+            }
+        }
+
+        function openAddEmployeeModal() {
+            document.getElementById('emp-modal-title').innerText = 'Добавить сотрудника';
+            document.getElementById('edit-emp-id').value = '';
+            document.getElementById('modal-emp-name').value = '';
+            document.getElementById('modal-emp-pass').value = '';
+            document.getElementById('modal-emp-role').value = 'Оператор';
+            document.getElementById('modal-emp-level').value = '0';
+            document.getElementById('modal-emp-total-worked').value = '0';
+            document.getElementById('modal-emp-date').value = todayStr;
+            
+            const randomAvatarIdx = Math.floor(Math.random() * ANIMAL_AVATARS.length);
+            document.getElementById('modal-emp-avatar').value = randomAvatarIdx;
+            document.getElementById('modal-avatar-preview').innerHTML = getAvatarSVG(randomAvatarIdx);
+
+            document.getElementById('employee-modal').classList.remove('hidden');
+        }
+
+        function openEditEmployeeModal(empId) {
+            const emp = employees.find(e => String(e.id) === String(empId));
+            if (!emp) return;
+
+            syncEmployeeCalculations(emp);
+            document.getElementById('emp-modal-title').innerText = 'Редактировать сотрудника';
+            document.getElementById('edit-emp-id').value = emp.id;
+            document.getElementById('modal-emp-name').value = emp.name;
+            document.getElementById('modal-emp-pass').value = emp.password;
+            document.getElementById('modal-emp-role').value = normalizeEmployeeRole(emp.role);
+            document.getElementById('modal-emp-level').value = (emp.baseLevel !== undefined && emp.baseLevel !== null) ? emp.baseLevel : (emp.level || 0);
+            document.getElementById('modal-emp-total-worked').value = emp.totalWorkedShifts;
+            document.getElementById('modal-emp-date').value = emp.createdAt || todayStr;
+            
+            const avatarIdx = emp.avatarIdx !== undefined ? emp.avatarIdx : 0;
+            document.getElementById('modal-emp-avatar').value = avatarIdx;
+            document.getElementById('modal-avatar-preview').innerHTML = getAvatarSVG(avatarIdx);
+
+            document.getElementById('employee-modal').classList.remove('hidden');
+        }
+
+        function randomizeModalAvatar() {
+            const currentIdx = parseInt(document.getElementById('modal-emp-avatar').value, 10) || 0;
+            let newIdx = Math.floor(Math.random() * ANIMAL_AVATARS.length);
+            if (newIdx === currentIdx) newIdx = (currentIdx + 1) % ANIMAL_AVATARS.length;
+            
+            document.getElementById('modal-emp-avatar').value = newIdx;
+            document.getElementById('modal-avatar-preview').innerHTML = getAvatarSVG(newIdx);
+        }
+
+        function closeEmployeeModal() {
+            document.getElementById('employee-modal').classList.add('hidden');
+        }
+
+        function saveEmployeeData() {
+            const empId = document.getElementById('edit-emp-id').value;
+            const name = document.getElementById('modal-emp-name').value.trim();
+            const password = document.getElementById('modal-emp-pass').value.trim();
+            const role = normalizeEmployeeRole(document.getElementById('modal-emp-role').value.trim());
+            const baseLevel = parseInt(document.getElementById('modal-emp-level').value, 10) || 0;
+            const newTotalWorkedInput = parseInt(document.getElementById('modal-emp-total-worked').value, 10) || 0;
+            const createdAt = document.getElementById('modal-emp-date').value || todayStr;
+            const avatarIdx = parseInt(document.getElementById('modal-emp-avatar').value, 10) || 0;
+
+            if (!name || !password) {
+                showModal('Ошибка', 'Пожалуйста, заполните ФИО и пароль сотрудника.', 'error');
+                return;
+            }
+
+            if (empId) {
+                const emp = employees.find(e => String(e.id) === String(empId));
+                if (emp) {
+                    emp.name = name;
+                    emp.password = password;
+                    emp.role = role;
+                    emp.baseLevel = Math.max(0, baseLevel);
+                    emp.createdAt = createdAt;
+                    emp.avatarIdx = avatarIdx;
+                    const currentActivePast = calculateLifetimeWorkedShifts(emp) - (emp.accumulatedWorkedShifts || 0);
+                    emp.accumulatedWorkedShifts = Math.max(0, newTotalWorkedInput - currentActivePast);
+                    syncEmployeeCalculations(emp);
+                }
+            } else {
+                const newEmp = {
+                    id: 'emp_' + Date.now(),
+                    name: name,
+                    password: password,
+                    role: role,
+                    baseLevel: Math.max(0, baseLevel),
+                    level: Math.max(0, baseLevel + Math.floor(Math.max(0, newTotalWorkedInput) / 10)),
+                    accumulatedWorkedShifts: Math.max(0, newTotalWorkedInput),
+                    createdAt: createdAt,
+                    avatarIdx: avatarIdx,
+                    shiftMap: {},
+                    statusInfo: { gph: 'нет', docs: 'нет', photo: 'нет', tb: 'нет', scripts: 'нет' }
+                };
+                syncEmployeeCalculations(newEmp);
+                employees.push(newEmp);
+            }
+
+            persistData();
+            closeEmployeeModal();
+            initAdminView();
+            showModal('Успешно', 'Данные сотрудника успешно сохранены!', 'success');
+        }
+
+
+        let pendingConfirmCallback = null;
+
+        function showConfirmModal(title, message, onConfirm, confirmBtnText = 'Подтвердить', confirmBtnColor = 'bg-rose-600 hover:bg-rose-700') {
+            const modal = document.getElementById('confirm-modal-container');
+            const titleEl = document.getElementById('confirm-modal-title');
+            const msgEl = document.getElementById('confirm-modal-message');
+            const actionBtn = document.getElementById('confirm-modal-action-btn');
+
+            if (!modal || !titleEl || !msgEl || !actionBtn) return;
+
+            titleEl.innerText = title;
+            msgEl.innerText = message;
+            actionBtn.innerText = confirmBtnText;
+            actionBtn.className = `${confirmBtnColor} text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition shadow-lg shadow-rose-100 cursor-pointer`;
+
+            pendingConfirmCallback = typeof onConfirm === 'function' ? onConfirm : null;
+
+            actionBtn.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const callbackToRun = pendingConfirmCallback;
+                closeConfirmModal();
+                if (callbackToRun) {
+                    try {
+                        callbackToRun();
+                    } catch (err) {
+                        console.error('Error executing confirm action:', err);
+                        showModal('Ошибка', 'Не удалось завершить операцию. Попробуйте еще раз.', 'error');
+                    }
+                }
+            };
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            const modal = document.getElementById('confirm-modal-container');
+            if (modal) modal.classList.add('hidden');
+            pendingConfirmCallback = null;
+        }
+
+        function formatDisplayDateRu(isoStr) {
+            if (!isoStr) return '';
+            const parts = isoStr.split('-');
+            if (parts.length === 3) {
+                return `${parts[2]}.${parts[1]}.${parts[0]}`;
+            }
+            return isoStr;
+        }
+
+        function exportShiftsToExcel() {
+            const fromInput = document.getElementById('excel-export-from');
+            const toInput = document.getElementById('excel-export-to');
+
+            const fromDateStr = fromInput ? fromInput.value : '';
+            const toDateStr = toInput ? toInput.value : '';
+
+            if (!fromDateStr || !toDateStr) {
+                showModal('Ошибка экспорта', 'Пожалуйста, выберите начальную и конечную даты периода для выгрузки.', 'error');
+                return;
+            }
+
+            if (fromDateStr > toDateStr) {
+                showModal('Ошибка диапазона дат', 'Начальная дата не может быть позже конечной даты.', 'error');
+                return;
+            }
+
+            if (typeof XLSX === 'undefined') {
+                showModal('Ошибка библиотеки', 'Библиотека экспорта Excel не загружена. Проверьте подключение к сети.', 'error');
+                return;
+            }
+
+            // Sync latest persistent data
+            const stored = JSON.parse(safeGet('shift_app_employees_v9'));
+            if (Array.isArray(stored)) {
+                employees = stored;
+            }
+
+            // Generate list of all ISO dates in selected range [fromDateStr, toDateStr]
+            const [startY, startM, startD] = fromDateStr.split('-').map(Number);
+            const [endY, endM, endD] = toDateStr.split('-').map(Number);
+            const curDate = new Date(startY, startM - 1, startD);
+            const lastDate = new Date(endY, endM - 1, endD);
+
+            const periodDates = [];
+            while (curDate <= lastDate) {
+                periodDates.push(formatDateKey(curDate));
+                curDate.setDate(curDate.getDate() + 1);
+            }
+
+            if (periodDates.length === 0) {
+                showModal('Ошибка диапазона дат', 'Выбран некорректный период.', 'error');
+                return;
+            }
+
+            // Sort employees by role priority matching admin table view
+            const roleOrderMap = {
+                'Админ': 1,
+                'Старший оператор': 2,
+                'Кассир': 3,
+                'Оператор': 4
+            };
+
+            const exportEmployees = [...employees].sort((a, b) => {
+                const pA = roleOrderMap[normalizeEmployeeRole(a.role)] || 99;
+                const pB = roleOrderMap[normalizeEmployeeRole(b.role)] || 99;
+                return pA - pB;
+            });
+
+            // Build matrix rows: 1 row per employee
+            const exportRows = [];
+
+            exportEmployees.forEach(emp => {
+                const row = {};
+                row['ФИО'] = emp.name;
+                row['роль'] = normalizeEmployeeRole(emp.role);
+
+                let employeePeriodShiftsCount = 0;
+
+                periodDates.forEach(isoDate => {
+                    const displayDate = formatDisplayDateRu(isoDate);
+                    const isAssigned = !!(emp.shiftMap && emp.shiftMap[isoDate]);
+                    if (isAssigned) {
+                        employeePeriodShiftsCount++;
+                        row[displayDate] = 'да';
+                    } else {
+                        row[displayDate] = '';
+                    }
+                });
+
+                row['всего смен'] = employeePeriodShiftsCount;
+                exportRows.push(row);
+            });
+
+            // Create worksheet and workbook
+            const worksheet = XLSX.utils.json_to_sheet(exportRows);
+
+            // Configure column widths
+            const colWidths = [
+                { wch: 34 }, // ФИО
+                { wch: 20 }  // роль
+            ];
+
+            periodDates.forEach(() => {
+                colWidths.push({ wch: 12 }); // each date column
+            });
+
+            colWidths.push({ wch: 14 }); // всего смен
+            worksheet['!cols'] = colWidths;
+
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Смены');
+
+            // Construct filename with date range: Смены_01.10.2026-15.10.2026.xlsx
+            const filename = `Смены_${formatDisplayDateRu(fromDateStr)}-${formatDisplayDateRu(toDateStr)}.xlsx`;
+
+            try {
+                XLSX.writeFile(workbook, filename);
+                showModal('Экспорт завершен', `Файл "${filename}" успешно скачан!`, 'success');
+            } catch (err) {
+                showModal('Ошибка сохранения', 'Не удалось сформировать файл Excel. Попробуйте еще раз.', 'error');
+            }
+        }
+
+        function deleteEmployee(empId) {
+            if (!empId) {
+                showModal('Ошибка', 'Не указан идентификатор сотрудника для удаления.', 'error');
+                return;
+            }
+
+            const stored = JSON.parse(safeGet('shift_app_employees_v9'));
+            if (Array.isArray(stored)) {
+                employees = stored;
+            }
+
+            const targetEmp = employees.find(e => String(e.id) === String(empId));
+            if (!targetEmp) {
+                showModal('Ошибка', 'Сотрудник не найден или уже был удален.', 'error');
+                initAdminView();
+                return;
+            }
+
+            showConfirmModal(
+                'Удаление сотрудника',
+                `Вы уверены, что хотите удалить сотрудника "${targetEmp.name}"? Это действие необратимо.`,
+                function() {
+                    try {
+                        const initialLength = employees.length;
+                        employees = employees.filter(e => String(e.id) !== String(empId));
+
+                        if (employees.length === initialLength) {
+                            showModal('Ошибка', 'Не удалось удалить сотрудника из списка.', 'error');
+                            return;
+                        }
+
+                        persistData();
+                        initAdminView();
+
+                        showModal('Удалено', `Сотрудник "${targetEmp.name}" успешно удален из системы.`, 'info');
+                    } catch (err) {
+                        showModal('Ошибка', 'Произошла непредвиденная ошибка при сохранении данных после удаления.', 'error');
+                    }
+                },
+                'Удалить',
+                'bg-rose-600 hover:bg-rose-700'
+            );
+        }
+
+
+        window.onload = function() {
+            if (currentUser) {
+                if (currentUser.role === 'admin') {
+                    showAdminView();
+                } else if (currentUser.role === 'employee') {
+                    showEmployeeView();
+                } else {
+                    logout();
+                }
+            }
+        };
+    </script>
+</body>
+</html>
